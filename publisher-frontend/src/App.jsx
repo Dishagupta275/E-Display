@@ -5,6 +5,7 @@ import ClassSelect from "./pages/ClassSelect";
 import EmptyTimetable from "./pages/EmptyTimetable";
 import WeekUpdate from "./pages/WeekUpdate";
 import DayUpdate from "./pages/DayUpdate";
+import Notices from "./pages/Notices";
 
 export default function App() {
   const location = useLocation();
@@ -15,49 +16,86 @@ export default function App() {
     return false;
   };
 
-  const linkStyle = (path) => ({
-    color: "#fff",
-    marginRight: 14,
-    padding: "4px 10px",
-    borderRadius: 6,
-    fontWeight: isActive(path) ? 700 : 400,
-    background: isActive(path) ? "rgba(255,255,255,0.15)" : "transparent",
-    transition: "background 0.2s",
-    fontSize: 14,
-  });
-
   return (
-    <div>
+    <div style={{ minHeight: "100vh", background: "var(--bg-subtle)", display: "flex", flexDirection: "column" }}>
       <nav style={{
-        padding: "10px 20px",
-        background: "linear-gradient(135deg, #0f172a, #1e293b)",
-        color: "#fff",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+        background: "var(--slate-900)",
+        borderBottom: "1px solid rgba(255,255,255,0.08)",
+        position: "sticky",
+        top: 0,
+        zIndex: 100,
+        boxShadow: "0 2px 16px rgba(0,0,0,0.2)",
       }}>
-        <Link to="/" style={{ fontWeight: 700, color: "#fff", fontSize: 16, textDecoration: "none" }}>
-          📺 E-Display • Publisher
-        </Link>
-        <div>
-          <Link to="/" style={linkStyle("/")}>Dashboard</Link>
-          <Link to="/class-select/empty" style={linkStyle("/class-select/empty")}>Empty Timetable</Link>
-          <Link to="/class-select/update" style={linkStyle("/class-select/update")}>Update Timetable</Link>
+        <div style={{
+          maxWidth: 1100,
+          margin: "0 auto",
+          padding: "0 20px",
+          height: 56,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 20,
+        }}>
+          <Link to="/" style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            color: "#fff",
+            fontWeight: 800,
+            fontSize: 15,
+            letterSpacing: "-0.3px",
+            textDecoration: "none",
+          }}>
+            <span style={{
+              background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+              borderRadius: 8,
+              padding: "5px 8px",
+              fontSize: 16,
+              lineHeight: 1,
+            }}>📺</span>
+            E-Display
+            <span style={{ color: "var(--slate-400)", fontWeight: 400, fontSize: 13 }}>Publisher</span>
+          </Link>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            {[
+              { label: "Dashboard", path: "/" },
+              { label: "Empty Timetable", path: "/class-select/empty" },
+              { label: "Update Timetable", path: "/class-select/update" },
+              { label: "📢 Notices", path: "/notices" },
+            ].map(({ label, path }) => (
+              <Link key={path} to={path} style={{
+                color: isActive(path) ? "#fff" : "var(--slate-400)",
+                padding: "6px 12px",
+                borderRadius: 6,
+                fontWeight: isActive(path) ? 600 : 400,
+                fontSize: 13.5,
+                background: isActive(path) ? "rgba(255,255,255,0.1)" : "transparent",
+                transition: "all 0.15s",
+                textDecoration: "none",
+              }}>
+                {label}
+              </Link>
+            ))}
+          </div>
         </div>
       </nav>
 
-      <main style={{ padding: 20, minHeight: "calc(100vh - 56px)" }}>
+      <main style={{ flex: 1, padding: "28px 20px", maxWidth: 1100, margin: "0 auto", width: "100%" }}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/class-select/:mode" element={<ClassSelect />} />
           <Route path="/empty/:classname" element={<EmptyTimetable />} />
           <Route path="/week/:classname" element={<WeekUpdate />} />
           <Route path="/day/:classname/:day" element={<DayUpdate />} />
+          <Route path="/notices" element={<Notices />} />
           <Route path="*" element={
-            <div style={{ textAlign: "center", padding: 60, color: "#888" }}>
-              <h2>404 — Page not found</h2>
-              <Link to="/" style={{ color: "#0ea5e9" }}>Go to Dashboard</Link>
+            <div style={{ textAlign: "center", padding: "80px 20px", color: "var(--slate-400)" }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div>
+              <h2 style={{ color: "var(--slate-700)" }}>404 — Page not found</h2>
+              <Link to="/" className="btn-primary" style={{ display: "inline-block", marginTop: 12, textDecoration: "none" }}>
+                Back to Dashboard
+              </Link>
             </div>
           } />
         </Routes>
