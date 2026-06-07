@@ -3,6 +3,8 @@ import { getTimetable, saveTimetable, publishTimetable } from "../utils/api";
 import { useParams } from "react-router-dom";
 import { useToast } from "../components/Toast";
 
+const DAY_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
 export default function WeekUpdate() {
   const { classname } = useParams();
   const [data, setData] = useState(null);
@@ -25,6 +27,11 @@ export default function WeekUpdate() {
       })
       .finally(() => setLoading(false));
   }, [classname]);
+
+  // Always iterate days in correct order
+  const orderedDays = data?.week
+    ? DAY_ORDER.filter((d) => d in data.week)
+    : [];
 
   const updateCell = (day, idx, value) => {
     setData((prev) => {
@@ -91,17 +98,19 @@ export default function WeekUpdate() {
           <thead>
             <tr>
               <th style={thStyle}>Period</th>
-              {Object.keys(data.week).map((day) => <th key={day} style={thStyle}>{day}</th>)}
+              {orderedDays.map((day) => (
+                <th key={day} style={thStyle}>{day}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {data.periods.map((period, idx) => (
               <tr key={idx}>
                 <td style={tdStyle}>{period}</td>
-                {Object.keys(data.week).map((day) => (
+                {orderedDays.map((day) => (
                   <td key={day} style={tdStyle}>
                     <input
-                      value={data.week[day][idx]}
+                      value={data.week[day][idx] || ""}
                       onChange={(e) => updateCell(day, idx, e.target.value)}
                       style={{ width: "100%", padding: 6, borderRadius: 6, border: "1px solid #ddd" }}
                     />

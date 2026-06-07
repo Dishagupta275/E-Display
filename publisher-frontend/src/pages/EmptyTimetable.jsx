@@ -3,10 +3,13 @@ import { getTimetable, saveTimetable, publishTimetable } from "../utils/api";
 import { useParams } from "react-router-dom";
 import { useToast } from "../components/Toast";
 
-/**
- * EmptyTimetable page loads an existing JSON (which may be empty strings for subjects)
- * and allows the publisher to fill subjects and save/publish.
- */
+const DAY_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+const DEFAULT_PERIODS = [
+  "9:00am-10:00am", "10:00am-10:50am", "10:50-11:00",
+  "11:00am-11:50am", "11:50am-12:40pm", "12:40-1:30",
+  "1:30pm-2:20pm", "2:20pm-3:10pm", "3:10pm-4:00pm",
+];
 
 export default function EmptyTimetable() {
   const { classname } = useParams();
@@ -17,23 +20,23 @@ export default function EmptyTimetable() {
   const originalRef = useRef(null);
   const { addToast, ToastContainer } = useToast();
 
-  // ✅ REQUIRED TIME SLOTS
-  const DEFAULT_PERIODS = [
-    "9:00am-10:00am",
-    "10:00am-10:50am",
-    "10:50-11:00",
-    "11:00am-11:50am",
-    "11:50am-12:40pm",
-    "12:40-1:30",
-    "1:30pm-2:20pm",
-    "2:20pm-3:10pm",
-    "3:10pm-4:00pm",
-  ];
+  const makeEmptyData = () => ({
+    class: classname,
+    updatedAt: new Date().toISOString(),
+    periods: DEFAULT_PERIODS,
+    week: {
+      Monday: Array(DEFAULT_PERIODS.length).fill(""),
+      Tuesday: Array(DEFAULT_PERIODS.length).fill(""),
+      Wednesday: Array(DEFAULT_PERIODS.length).fill(""),
+      Thursday: Array(DEFAULT_PERIODS.length).fill(""),
+      Friday: Array(DEFAULT_PERIODS.length).fill(""),
+      Saturday: Array(DEFAULT_PERIODS.length).fill(""),
+    },
+  });
 
   useEffect(() => {
     getTimetable(classname)
       .then((d) => {
-        // If empty response, create default structure
         if (!d || !d.week) {
           const empty = makeEmptyData();
           setData(empty);
@@ -49,20 +52,6 @@ export default function EmptyTimetable() {
         originalRef.current = JSON.stringify(empty);
       });
   }, [classname]);
-
-  const makeEmptyData = () => ({
-    class: classname,
-    updatedAt: new Date().toISOString(),
-    periods: DEFAULT_PERIODS,
-    week: {
-      Monday: Array(DEFAULT_PERIODS.length).fill(""),
-      Tuesday: Array(DEFAULT_PERIODS.length).fill(""),
-      Wednesday: Array(DEFAULT_PERIODS.length).fill(""),
-      Thursday: Array(DEFAULT_PERIODS.length).fill(""),
-      Friday: Array(DEFAULT_PERIODS.length).fill(""),
-      Saturday: Array(DEFAULT_PERIODS.length).fill(""),
-    },
-  });
 
   const updateCell = (day, idx, value) => {
     setData((prev) => {
@@ -107,8 +96,8 @@ export default function EmptyTimetable() {
     if (!data) return;
     setData((prev) => {
       const next = { ...prev, week: { ...prev.week } };
-      Object.keys(next.week).forEach((day) => {
-        next.week[day] = Array(prev.periods.length).fill("");
+      DAY_ORDER.forEach((day) => {
+        if (next.week[day]) next.week[day] = Array(prev.periods.length).fill("");
       });
       next.updatedAt = new Date().toISOString();
       return next;
@@ -116,6 +105,9 @@ export default function EmptyTimetable() {
     setHasChanges(true);
     addToast("All subjects cleared", "info");
   };
+
+  // ✅ Always render in correct day order
+  const orderedDays = DAY_ORDER.filter((d) => data?.week && d in data.week);
 
   if (!data) {
     return (
@@ -130,44 +122,32 @@ export default function EmptyTimetable() {
     <div style={{ maxWidth: 1000, margin: "0 auto" }}>
       <ToastContainer />
 
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+      {/* ✅ marginBottom stops it merging into first day */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
         <h2 style={{ margin: 0 }}>Empty Timetable — {classname}</h2>
         {hasChanges && (
           <span style={{
             padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600,
-            background: "#fef3c7", color: "#92400e",
-          }}>
-            Unsaved changes
-          </span>
+            background: "#f7ebeb", color: "#753636",
+          }}>Unsaved changes</span>
         )}
       </div>
 
       <div style={{ marginTop: 12 }}>
-        {Object.keys(data.week).map((day) => (
+        {/* ✅ orderedDays instead of Object.keys */}
+        {orderedDays.map((day) => (
           <div key={day} style={{ marginBottom: 18 }}>
             <h4 style={{ marginBottom: 6 }}>{day}</h4>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               {data.periods.map((p, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    minWidth: 160,
-                  }}
-                >
+                <div key={idx} style={{ display: "flex", flexDirection: "column", minWidth: 160 }}>
                   <div style={{ fontSize: 12, color: "#555" }}>{p}</div>
-
                   <input
-                    value={data.week[day][idx]}
+                    value={data.week[day][idx] || ""}
                     placeholder="Subject"
                     onChange={(e) => updateCell(day, idx, e.target.value)}
-                    style={{
-                      padding: 8,
-                      borderRadius: 6,
-                      border: "1px solid #ccc",
-                    }}
+                    style={{ padding: 8, borderRadius: 6, border: "1px solid #ccc" }}
                   />
                 </div>
               ))}
@@ -180,11 +160,9 @@ export default function EmptyTimetable() {
         <button onClick={onSave} style={primaryBtn} disabled={saving}>
           {saving ? "Saving..." : "💾 Save"}
         </button>
-
         <button onClick={onPublish} style={publishBtn} disabled={publishing}>
           {publishing ? "Publishing..." : "📡 Publish"}
         </button>
-
         <button onClick={onClearAll} style={clearBtn}>
           🧹 Clear All
         </button>
@@ -193,32 +171,6 @@ export default function EmptyTimetable() {
   );
 }
 
-const primaryBtn = {
-  padding: "9px 16px",
-  background: "#0ea5e9",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  cursor: "pointer",
-  fontWeight: 600,
-};
-
-const publishBtn = {
-  padding: "9px 16px",
-  background: "#8b5cf6",
-  color: "#fff",
-  border: "none",
-  borderRadius: 6,
-  cursor: "pointer",
-  fontWeight: 600,
-};
-
-const clearBtn = {
-  padding: "9px 16px",
-  background: "#fff",
-  color: "#64748b",
-  border: "1px solid #cbd5e1",
-  borderRadius: 6,
-  cursor: "pointer",
-  fontWeight: 600,
-};
+const primaryBtn = { padding: "9px 16px", background: "#0ea5e9", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 600 };
+const publishBtn = { padding: "9px 16px", background: "#8b5cf6", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 600 };
+const clearBtn = { padding: "9px 16px", background: "#fff", color: "#64748b", border: "1px solid #cbd5e1", borderRadius: 6, cursor: "pointer", fontWeight: 600 };
