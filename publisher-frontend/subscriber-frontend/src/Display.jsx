@@ -57,6 +57,14 @@ export default function Display({ classNameOverride }) {
     "All students must carry their ID cards",
     "Library is open from 9am to 5pm",
   ]);
+  const [settings, setSettings] = useState({
+    collegeName: "SPHOORTHY ENGINEERING COLLEGE",
+    yearSemester: "2ND YEAR B.TECH 1ST SEMESTER",
+    academicYear: "2024-2025",
+    classIncharge: "DR. KAJA MASTHAN AND D. MAMATHA REDDY",
+    lectureHall: "406",
+    events: ["Seminar", "Workshop", "Exam"],
+  });
 
   const params = new URLSearchParams(window.location.search);
   const className = classNameOverride || params.get("class") || "CSEA";
@@ -66,6 +74,14 @@ export default function Display({ classNameOverride }) {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  /* ===== LOAD SETTINGS FROM BACKEND ===== */
+  useEffect(() => {
+    fetch(`${API_BASE}/api/settings/${className}`)
+      .then((res) => res.json())
+      .then((data) => { if (data && data.collegeName) setSettings(data); })
+      .catch(() => {});
+  }, [className]);
 
   /* ===== LOAD TIMETABLE FROM BACKEND (REST) ===== */
   useEffect(() => {
@@ -89,9 +105,12 @@ export default function Display({ classNameOverride }) {
     fetch(`${API_BASE}/api/notices`)
       .then((res) => res.json())
       .then((data) => {
-        if (Array.isArray(data) && data.length > 0) setNotices(data);
+        if (Array.isArray(data) && data.length > 0) {
+          const texts = data.map((n) => typeof n === "string" ? n : n.text).filter(Boolean);
+          if (texts.length > 0) setNotices(texts);
+        }
       })
-      .catch(() => {}); // silently fail — default notices stay
+      .catch(() => {});
   }, []);
 
   /* ===== MQTT — timetable + notice live updates ===== */
@@ -103,8 +122,9 @@ export default function Display({ classNameOverride }) {
 
     client.on("connect", () => {
       client.subscribe(`edisplay/timetable/${className}`);
-      client.subscribe("edisplay/notices");           // global notices
-      client.subscribe(`edisplay/notices/${className}`); // class-specific notices
+      client.subscribe("edisplay/notices");
+      client.subscribe(`edisplay/notices/${className}`);
+      client.subscribe(`edisplay/settings/${className}`);
       console.log("✅ MQTT connected");
     });
 
@@ -112,8 +132,17 @@ export default function Display({ classNameOverride }) {
       try {
         const payload = JSON.parse(message.toString());
 
-        if (topic === "edisplay/notices") {
-          if (Array.isArray(payload)) setNotices(payload);
+        if (topic === `edisplay/settings/${className}`) {
+          if (payload && payload.collegeName) setSettings(payload);
+          return;
+        }
+
+        if (topic === "edisplay/notices" || topic === `edisplay/notices/${className}`) {
+          if (Array.isArray(payload)) {
+            // Handle both plain strings and {text, target} objects
+            const texts = payload.map((n) => typeof n === "string" ? n : n.text).filter(Boolean);
+            setNotices(texts);
+          }
           return;
         }
 
@@ -147,21 +176,21 @@ export default function Display({ classNameOverride }) {
       {/* ===== HEADER ===== */}
       <div className="top-header">
         <img src={collegeLogo} className="logo" alt="college" />
-        <div className="college-title">SPHOORTHY ENGINEERING COLLEGE</div>
+        <div className="college-title">{settings.collegeName}</div>
         <img src={naacLogo} className="logo" alt="naac" />
       </div>
 
       {/* ===== ACADEMIC BAR ===== */}
       <div className="academic-bar">
-        {className} 2ND YEAR B.TECH 1ST SEMESTER ACADEMIC YEAR: 2024–2025
+        {className} {settings.yearSemester} ACADEMIC YEAR: {settings.academicYear}
       </div>
 
       {/* ===== INFO STRIP ===== */}
       <div className="info-strip">
         <div className="info green">
-          CLASS INCHARGE : DR. KAJA MASTHAN AND D. MAMATHA REDDY
+          CLASS INCHARGE : {settings.classIncharge}
         </div>
-        <div className="info yellow">Lecture Hall : 406</div>
+        <div className="info yellow">Lecture Hall : {settings.lectureHall}</div>
         <div className="info yellow">
           {now.toLocaleTimeString()} |{" "}
           {now.toLocaleDateString(undefined, {
@@ -197,9 +226,9 @@ export default function Display({ classNameOverride }) {
         <div className="events-panel">
           <div className="events-title">📅 Upcoming Events</div>
           <div className="events-buttons">
-            <div className="event-btn">Seminar</div>
-            <div className="event-btn">Workshop</div>
-            <div className="event-btn">Exam</div>
+            {(settings.events || []).map((ev, i) => (
+              <div key={i} className="event-btn">{ev}</div>
+            ))}
           </div>
         </div>
         <div className="clock-panel">

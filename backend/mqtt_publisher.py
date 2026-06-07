@@ -26,26 +26,42 @@ def publish_timetable(classname: str, payload: dict) -> None:
     print(f"📡 Timetable published to {topic}")
 
 
-def publish_notices(notices: list, target_classes: list = None) -> None:
+def publish_settings(classname: str, settings: dict) -> None:
+    client = _get_client()
+    topic = f"edisplay/settings/{classname}"
+    result = client.publish(topic, json.dumps(settings), qos=1)
+    result.wait_for_publish()
+    client.disconnect()
+    print(f"📡 Settings published to {topic}")
+
+
+def publish_notices(notices: list) -> None:
     """
-    Publish notices via MQTT.
-    - If target_classes is None or empty → publish to global topic (all displays listen)
-    - If target_classes is a list → publish to each class-specific topic
+    Each notice is { text, target } where target is "all" or a list of class names.
+    Groups notices by target and publishes to the right MQTT topics.
     """
     client = _get_client()
 
-    if target_classes:
-        # Per-class topics: edisplay/notices/CSEC, edisplay/notices/ECEA etc.
-        for cls in target_classes:
-            topic = f"edisplay/notices/{cls}"
-            result = client.publish(topic, json.dumps(notices), qos=1)
-            result.wait_for_publish()
-            print(f"📡 Notices published to {topic}")
-    else:
-        # Global topic — all displays receive it
-        topic = "edisplay/notices"
-        result = client.publish(topic, json.dumps(notices), qos=1)
+    # Build a map: topic → list of notice texts
+    topic_map = {}  # topic -> [text, ...]
+
+    for n in notices:
+        text = n.get("text", "").strip()
+        target = n.get("target", "all")
+        if not text:
+            continue
+
+        if target == "all" or not target:
+            topics = ["edisplay/notices"]
+        else:
+            topics = [f"edisplay/notices/{cls}" for cls in target]
+
+        for topic in topics:
+            topic_map.setdefault(topic, []).append(text)
+
+    for topic, texts in topic_map.items():
+        result = client.publish(topic, json.dumps(texts), qos=1)
         result.wait_for_publish()
-        print(f"📡 Notices published to {topic}")
+        print(f"📡 Notices published to {topic}: {texts}")
 
     client.disconnect()

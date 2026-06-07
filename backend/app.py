@@ -2,8 +2,10 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
 
-from mqtt_publisher import publish_timetable, publish_notices
-from database import init_db, get_all_classes, get_timetable, save_timetable, create_class, delete_class, get_notices, save_notices
+from mqtt_publisher import publish_timetable, publish_notices, publish_settings
+from database import (init_db, get_all_classes, get_timetable, save_timetable,
+                      create_class, delete_class, get_notices, save_notices,
+                      get_class_settings, save_class_settings)
 
 app = Flask(__name__)
 CORS(app)
@@ -91,31 +93,63 @@ def api_save_notices():
 
 @app.route("/api/notices/publish", methods=["POST"])
 def api_publish_notices():
-    body = request.json or {}
-    # Support both old format (list) and new format ({ notices, classes })
-    if isinstance(body, list):
-        notices = body
-        target_classes = None  # all
-    else:
-        notices = body.get("notices", [])
-        target_classes = body.get("classes", None)  # None = all
+    body = request.json
+    if not body:
+        return jsonify({"status": "error", "message": "No data provided"}), 400
 
-    if not isinstance(notices, list) or len(notices) == 0:
-        return jsonify({"status": "error", "message": "No notices provided"}), 400
+    # Normalize: accept plain list of strings OR list of {text, target} objects
+    if isinstance(body, list):
+        if len(body) == 0:
+            return jsonify({"status": "error", "message": "No notices provided"}), 400
+        if isinstance(body[0], str):
+            # old format — wrap each as {text, target: "all"}
+            notices = [{"text": t, "target": "all"} for t in body if t.strip()]
+        else:
+            notices = [n for n in body if n.get("text", "").strip()]
+    else:
+        return jsonify({"status": "error", "message": "Expected a list"}), 400
+
+    if not notices:
+        return jsonify({"status": "error", "message": "No valid notices"}), 400
 
     save_notices(notices)
 
     try:
-        publish_notices(notices, target_classes)
+        publish_notices(notices)
     except Exception as e:
         return jsonify({"status": "ok", "message": "saved", "mqtt": f"error: {e}"}), 200
 
-    label = "all classes" if not target_classes else ", ".join(target_classes)
-    return jsonify({"status": "ok", "message": f"Notices published to {label}"}), 200
+    return jsonify({"status": "ok", "message": f"Published {len(notices)} notice(s)"}), 200
 
 
 # =========================================================
-# HEALTH + ROOT
+# CLASS SETTINGS
+# =========================================================
+@app.route("/api/settings/<class_name>", methods=["GET"])
+def api_get_settings(class_name):
+    return jsonify(get_class_settings(class_name)), 200
+
+@app.route("/api/settings/<class_name>", methods=["POST"])
+def api_save_settings(class_name):
+    data = request.json
+    if not data:
+        return jsonify({"status": "error", "message": "No data provided"}), 400
+    save_class_settings(class_name, data)
+    return jsonify({"status": "ok", "message": "Settings saved"}), 200
+
+@app.route("/api/settings/<class_name>/publish", methods=["POST"])
+def api_publish_settings(class_name):
+    data = request.json
+    if not data:
+        return jsonify({"status": "error", "message": "No data provided"}), 400
+    save_class_settings(class_name, data)
+    try:
+        publish_settings(class_name, data)
+    except Exception as e:
+        return jsonify({"status": "ok", "message": "saved", "mqtt": f"error: {e}"}), 200
+    return jsonify({"status": "ok", "message": "Settings published"}), 200
+
+
 # =========================================================
 @app.route("/api/health", methods=["GET"])
 def health():

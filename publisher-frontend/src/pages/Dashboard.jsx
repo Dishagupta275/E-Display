@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getClasses, createClass, checkHealth } from "../utils/api";
+import { getClasses, createClass, deleteClass, checkHealth } from "../utils/api";
 import { useToast } from "../components/Toast";
 
 export default function Dashboard() {
@@ -9,15 +9,14 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [newClassName, setNewClassName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [deletingClass, setDeletingClass] = useState(null);
   const [backendUp, setBackendUp] = useState(null);
   const { addToast, ToastContainer } = useToast();
 
-  // Check backend health
   useEffect(() => {
     checkHealth().then(setBackendUp);
   }, []);
 
-  // Load classes
   useEffect(() => {
     loadClasses();
   }, []);
@@ -35,10 +34,8 @@ export default function Dashboard() {
 
   const handleCreate = async () => {
     const name = newClassName.trim().toUpperCase();
-    if (!name) {
-      addToast("Enter a class name", "warning");
-      return;
-    }
+    if (!name) { addToast("Enter a class name", "warning"); return; }
+    if (name.length > 20) { addToast("Class name too long (max 20 chars)", "warning"); return; }
     setCreating(true);
     try {
       await createClass(name);
@@ -49,6 +46,20 @@ export default function Dashboard() {
       addToast(err.message, "error");
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleDelete = async (name) => {
+    if (!window.confirm(`Delete class "${name}" and all its timetable data?`)) return;
+    setDeletingClass(name);
+    try {
+      await deleteClass(name);
+      addToast(`Class "${name}" deleted`, "success");
+      loadClasses();
+    } catch (err) {
+      addToast(err.message, "error");
+    } finally {
+      setDeletingClass(null);
     }
   };
 
@@ -63,93 +74,143 @@ export default function Dashboard() {
   };
 
   return (
-    <div style={{ maxWidth: 920, margin: "0 auto" }}>
+    <div style={{ maxWidth: 960, margin: "0 auto" }}>
       <ToastContainer />
 
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-        <h1 style={{ margin: 0 }}>Publisher Dashboard</h1>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 28 }}>
+        <div>
+          <h1 style={{ margin: "0 0 6px", fontSize: 26, fontWeight: 800 }}>Publisher Dashboard</h1>
+          <p style={{ color: "var(--text-muted)", margin: 0, fontSize: 14 }}>
+            Prepare and publish class timetables to your e-ink displays.
+          </p>
+        </div>
         {backendUp !== null && (
-          <span style={{
-            display: "inline-flex", alignItems: "center", gap: 6,
-            padding: "4px 10px", borderRadius: 20, fontSize: 13, fontWeight: 600,
-            background: backendUp ? "#dcfce7" : "#fee2e2",
-            color: backendUp ? "#166534" : "#991b1b",
-          }}>
+          <div className={`badge ${backendUp ? "badge-success" : "badge-error"}`} style={{ flexShrink: 0, marginTop: 4 }}>
             <span style={{
-              width: 8, height: 8, borderRadius: "50%",
+              width: 7, height: 7, borderRadius: "50%",
               background: backendUp ? "#22c55e" : "#ef4444",
+              animation: backendUp ? "pulse 2s infinite" : "none",
             }} />
             {backendUp ? "Backend Online" : "Backend Offline"}
-          </span>
+          </div>
         )}
       </div>
-      <p style={{ color: "#555", marginTop: 4 }}>Choose an action to prepare or update timetables and publish to displays.</p>
 
-      {/* ── Action Cards ── */}
-      <div style={{ display: "flex", gap: 16, marginTop: 20 }}>
-        <div style={cardStyle}>
-          <h3 style={{ marginTop: 0 }}>📝 Empty Timetable</h3>
-          <p style={{ color: "#555", fontSize: 14 }}>Create or fill a blank timetable skeleton for a class.</p>
-          <button onClick={() => nav("/class-select/empty")} style={btnStyle}>Open</button>
-        </div>
-
-        <div style={cardStyle}>
-          <h3 style={{ marginTop: 0 }}>📋 Update Timetable</h3>
-          <p style={{ color: "#555", fontSize: 14 }}>Choose week update (full-week edits) or day update (single-day edits).</p>
-          <button onClick={() => nav("/class-select/update")} style={btnStyle}>Open</button>
-        </div>
+      {/* Action Cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 28 }}>
+        <ActionCard
+          icon="📝"
+          title="Empty Timetable"
+          desc="Start fresh — fill a blank timetable skeleton for a class and publish."
+          onClick={() => nav("/class-select/empty")}
+          color="#2563eb"
+        />
+        <ActionCard
+          icon="📋"
+          title="Update Timetable"
+          desc="Edit existing data — update by full week or a single day."
+          onClick={() => nav("/class-select/update")}
+          color="#7c3aed"
+        />
       </div>
 
-      {/* ── Create New Class ── */}
-      <div style={{ marginTop: 32, padding: 20, borderRadius: 8, border: "1px solid #e2e8f0", background: "#f8fafc" }}>
-        <h3 style={{ marginTop: 0 }}>➕ Create New Class</h3>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+      {/* Create Class */}
+      <div className="card" style={{ marginBottom: 28 }}>
+        <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 700 }}>➕ Create New Class</h3>
+        <div style={{ display: "flex", gap: 10 }}>
           <input
             value={newClassName}
             onChange={(e) => setNewClassName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
             placeholder="e.g. CSEC, ECEA, MECHA"
-            style={{
-              flex: 1, padding: "10px 12px", borderRadius: 6,
-              border: "1px solid #cbd5e1", fontSize: 14,
-            }}
+            style={{ flex: 1 }}
           />
-          <button onClick={handleCreate} style={btnStyle} disabled={creating}>
-            {creating ? "Creating..." : "Create"}
+          <button
+            onClick={handleCreate}
+            className="btn-primary"
+            disabled={creating}
+            style={{ flexShrink: 0, whiteSpace: "nowrap" }}
+          >
+            {creating ? "Creating..." : "Create Class"}
           </button>
         </div>
       </div>
 
-      {/* ── Existing Classes ── */}
-      <div style={{ marginTop: 28 }}>
-        <h3>📚 Existing Classes ({classes.length})</h3>
+      {/* Existing Classes */}
+      <div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>
+            📚 Existing Classes
+            <span style={{
+              marginLeft: 8, fontSize: 12, fontWeight: 600,
+              background: "var(--slate-100)", color: "var(--slate-500)",
+              padding: "2px 8px", borderRadius: 20,
+            }}>{classes.length}</span>
+          </h3>
+          <button onClick={loadClasses} className="btn-secondary" style={{ fontSize: 12, padding: "5px 12px" }}>
+            ↻ Refresh
+          </button>
+        </div>
+
         {loading ? (
-          <div className="loading-spinner" style={{ margin: "20px auto" }} />
+          <div style={{ textAlign: "center", padding: 40 }}>
+            <div className="loading-spinner" />
+            <p style={{ color: "var(--text-muted)", marginTop: 12, fontSize: 14 }}>Loading classes...</p>
+          </div>
         ) : classes.length === 0 ? (
-          <p style={{ color: "#888" }}>No classes found. Create one above to get started.</p>
+          <div style={{
+            textAlign: "center", padding: "40px 20px",
+            border: "1.5px dashed var(--border-strong)",
+            borderRadius: "var(--radius-lg)",
+            color: "var(--text-muted)",
+          }}>
+            <div style={{ fontSize: 36, marginBottom: 8 }}>🏫</div>
+            <p style={{ margin: 0, fontSize: 14 }}>No classes yet. Create one above to get started.</p>
+          </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
             {classes.map((cls) => {
               const name = typeof cls === "string" ? cls : cls.name;
               const updatedAt = typeof cls === "object" ? cls.updated_at : null;
               return (
-                <div key={name} style={{
-                  padding: 14, borderRadius: 8, border: "1px solid #e2e8f0",
-                  background: "#fff", cursor: "pointer", transition: "box-shadow 0.2s",
-                }}
-                  onMouseEnter={(e) => e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.08)"}
-                  onMouseLeave={(e) => e.currentTarget.style.boxShadow = "none"}
-                >
-                  <div style={{ fontWeight: 700, fontSize: 16 }}>{name}</div>
+                <div key={name} className="card" style={{ padding: 16 }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8 }}>
+                    <div style={{ fontWeight: 800, fontSize: 18, letterSpacing: "0.5px", color: "var(--slate-800)" }}>
+                      {name}
+                    </div>
+                    <button
+                      onClick={() => handleDelete(name)}
+                      disabled={deletingClass === name}
+                      style={{
+                        padding: "3px 7px", fontSize: 12,
+                        background: "transparent",
+                        color: "var(--text-subtle)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 6,
+                        cursor: "pointer",
+                      }}
+                      title="Delete class"
+                    >
+                      {deletingClass === name ? "..." : "✕"}
+                    </button>
+                  </div>
+
                   {updatedAt && (
-                    <div style={{ fontSize: 12, color: "#888", marginTop: 4 }}>
-                      Updated: {formatDate(updatedAt)}
+                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 12 }}>
+                      Updated {formatDate(updatedAt)}
                     </div>
                   )}
-                  <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-                    <button onClick={() => nav(`/empty/${name}`)} style={smallBtn}>Empty</button>
-                    <button onClick={() => nav(`/week/${name}`)} style={smallBtn}>Week</button>
-                    <button onClick={() => nav(`/day/${name}/Monday`)} style={smallBtn}>Day</button>
+
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => nav(`/empty/${name}`)} className="btn-secondary"
+                      style={{ flex: 1, fontSize: 12, padding: "6px 8px" }}>Empty</button>
+                    <button onClick={() => nav(`/week/${name}`)} className="btn-secondary"
+                      style={{ flex: 1, fontSize: 12, padding: "6px 8px" }}>Week</button>
+                    <button onClick={() => nav(`/day/${name}/Monday`)} className="btn-secondary"
+                      style={{ flex: 1, fontSize: 12, padding: "6px 8px" }}>Day</button>
+                    <button onClick={() => nav(`/settings/${name}`)} className="btn-secondary"
+                      style={{ flex: 1, fontSize: 12, padding: "6px 8px" }} title="Class Settings">⚙️</button>
                   </div>
                 </div>
               );
@@ -157,22 +218,41 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+      `}</style>
     </div>
   );
 }
 
-const cardStyle = {
-  flex: 1, padding: 20, borderRadius: 10,
-  border: "1px solid #e2e8f0", background: "#fff",
-  boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-};
-
-const btnStyle = {
-  padding: "9px 16px", background: "#0ea5e9", color: "#fff",
-  border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 600, fontSize: 14,
-};
-
-const smallBtn = {
-  padding: "5px 10px", borderRadius: 6, border: "1px solid #cbd5e1",
-  background: "#fff", cursor: "pointer", fontSize: 13,
-};
+function ActionCard({ icon, title, desc, onClick, color }) {
+  return (
+    <div
+      onClick={onClick}
+      className="card"
+      style={{
+        cursor: "pointer",
+        borderLeft: `3px solid ${color}`,
+        transition: "box-shadow 0.2s, transform 0.15s",
+        padding: "20px 22px",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.boxShadow = "var(--shadow-lg)";
+        e.currentTarget.style.transform = "translateY(-1px)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.boxShadow = "var(--shadow)";
+        e.currentTarget.style.transform = "translateY(0)";
+      }}
+    >
+      <div style={{ fontSize: 28, marginBottom: 10 }}>{icon}</div>
+      <h3 style={{ margin: "0 0 6px", fontSize: 15, color: "var(--slate-800)" }}>{title}</h3>
+      <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>{desc}</p>
+      <div style={{ marginTop: 14, fontSize: 13, fontWeight: 600, color }}>Open →</div>
+    </div>
+  );
+}

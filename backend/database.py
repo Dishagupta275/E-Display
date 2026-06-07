@@ -45,6 +45,15 @@ def init_db():
         )
     """)
 
+    # Class settings table — one row per class
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS class_settings (
+            class_name TEXT PRIMARY KEY,
+            data TEXT NOT NULL DEFAULT '{}',
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+    """)
+
     conn.commit()
     _migrate_json_files(conn)
     conn.close()
@@ -146,7 +155,40 @@ def save_timetable(class_name, data):
     return now
 
 
-# ── Notices ────────────────────────────────────────────────
+
+# ── Class Settings ─────────────────────────────────────────
+
+DEFAULT_SETTINGS = {
+    "collegeName": "SPHOORTHY ENGINEERING COLLEGE",
+    "academicYear": "2024-2025",
+    "yearSemester": "2ND YEAR B.TECH 1ST SEMESTER",
+    "classIncharge": "DR. KAJA MASTHAN AND D. MAMATHA REDDY",
+    "lectureHall": "406",
+    "events": ["Seminar", "Workshop", "Exam"],
+}
+
+def get_class_settings(class_name):
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT data FROM class_settings WHERE class_name = ?", (class_name,)
+    ).fetchone()
+    conn.close()
+    if row:
+        saved = json.loads(row["data"])
+        return {**DEFAULT_SETTINGS, **saved}
+    return dict(DEFAULT_SETTINGS)
+
+
+def save_class_settings(class_name, data):
+    conn = get_connection()
+    now = datetime.now(timezone.utc).isoformat()
+    conn.execute("""
+        INSERT INTO class_settings (class_name, data, updated_at) VALUES (?, ?, ?)
+        ON CONFLICT(class_name) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at
+    """, (class_name, json.dumps(data), now))
+    conn.commit()
+    conn.close()
+
 
 def get_notices():
     conn = get_connection()

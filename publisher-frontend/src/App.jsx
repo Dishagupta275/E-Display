@@ -6,6 +6,7 @@ import EmptyTimetable from "./pages/EmptyTimetable";
 import WeekUpdate from "./pages/WeekUpdate";
 import DayUpdate from "./pages/DayUpdate";
 import Notices from "./pages/Notices";
+import ClassSettings from "./pages/ClassSettings";
 
 export default function App() {
   const location = useLocation();
@@ -89,6 +90,7 @@ export default function App() {
           <Route path="/week/:classname" element={<WeekUpdate />} />
           <Route path="/day/:classname/:day" element={<DayUpdate />} />
           <Route path="/notices" element={<Notices />} />
+          <Route path="/settings/:classname" element={<ClassSettings />} />
           <Route path="*" element={
             <div style={{ textAlign: "center", padding: "80px 20px", color: "var(--slate-400)" }}>
               <div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div>
