@@ -2,18 +2,17 @@
 __pycache__/
 *.py[cod]
 *.pyo
-*.pyd
-.Python
 venv/
 env/
 .env
-*.egg-info/
 
-# ── Database ──
+# ── Database & data files ──
 *.db
 *.sqlite
 *.sqlite3
-backend/data/
+backend/data/edisplay.db
+backend/data/timetables/
+backend/data/classes.json
 
 # ── Node ──
 node_modules/
@@ -26,21 +25,14 @@ dist/
 .env.production
 .env.*.local
 
-# ── OS files ──
+# ── OS ──
 .DS_Store
 Thumbs.db
-desktop.ini
 
 # ── IDE ──
 .vscode/
 .idea/
-*.suo
-*.user
 
 # ── Logs ──
 *.log
 npm-debug.log*
-
-# ── Vite build ──
-dist/
-dist-ssr/
