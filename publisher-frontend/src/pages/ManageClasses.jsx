@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { classesAPI } from "../utils/api";
 import { useAuth } from "../context/AuthContext";
 import { usersAPI } from "../utils/api";
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = "https://e-display.onrender.com/api";
 
 export default function ManageClasses() {
   const nav = useNavigate();

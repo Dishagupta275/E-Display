@@ -13,7 +13,7 @@ export default function CreateTimings() {
       return;
     }
 
-    await fetch(`http://localhost:5000/api/timings/${classname}`, {
+    await fetch(`https://e-display.onrender.com/api/timings/${classname}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

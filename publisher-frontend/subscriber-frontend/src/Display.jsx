@@ -3,7 +3,7 @@ import mqtt from "mqtt";
 import TimetableView from "./TimetableView";
 import "./Display.css";
 
-const API = "http://localhost:5000/api";
+const API = "https://e-display.onrender.com/api";
 
 const MQTT_CONFIG = {
   brokerUrl: "wss://db89b31f17b343648adedb9f54f0aa40.s1.eu.hivemq.cloud:8884/mqtt",
@@ -457,7 +457,7 @@ export default function Display({ classObj, token, onExitKiosk }) {
 
             {notification.image_url && (
               <img
-                src={`http://localhost:5000${notification.image_url}`}
+                src={`https://e-display.onrender.com${notification.image_url}`}
                 alt="notification"
                 className="notif-image"
               />

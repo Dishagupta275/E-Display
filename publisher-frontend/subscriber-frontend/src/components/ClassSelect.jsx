@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import "./ClassSelect.css";
 
-const API = "http://localhost:5000/api";
+const API = "https://e-display.onrender.com/api";
 
 export default function ClassSelect({ token, user, department, onClassSelected }) {
   const [classes, setClasses] = useState([]); // flat list for this dept
