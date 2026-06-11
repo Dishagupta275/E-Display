@@ -1,79 +1,119 @@
-// ── API Configuration ──
-// In production, set VITE_API_URL in your Vercel/Netlify environment variables
-// to point to your Render backend URL (e.g., https://e-display-backend.onrender.com)
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+import axios from 'axios';
 
-export { API_BASE };
+const BASE_URL = 'http://localhost:5000';
 
-// ─── Classes ───
+// Create axios instance
+const api = axios.create({
+  baseURL: BASE_URL,
+  headers: { 'Content-Type': 'application/json' },
+});
 
-export async function getClasses() {
-  const res = await fetch(`${API_BASE}/api/classes`);
-  if (!res.ok) throw new Error("Failed to load classes");
-  return res.json();
-}
+// Request interceptor - add token automatically
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
-export async function createClass(name) {
-  const res = await fetch(`${API_BASE}/api/classes`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message || "Failed to create class");
-  return data;
-}
-
-export async function deleteClass(cls) {
-  const res = await fetch(`${API_BASE}/api/classes/${cls}`, {
-    method: "DELETE",
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message || "Failed to delete class");
-  return data;
-}
-
-// ─── Timetable ───
-
-export async function getTimetable(cls) {
-  const res = await fetch(`${API_BASE}/api/timetable/${cls}`);
-  if (!res.ok) throw new Error("Failed to load timetable");
-  return res.json();
-}
-
-export async function saveTimetable(cls, data) {
-  const res = await fetch(`${API_BASE}/api/timetable/${cls}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || "Save failed");
+// Response interceptor - handle 401
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.clear();
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
   }
-  return res.json();
-}
+);
 
-export async function publishTimetable(cls, data) {
-  const res = await fetch(`${API_BASE}/api/timetable/${cls}/publish`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || "Publish failed");
-  }
-  return res.json();
-}
+// ─── AUTH ───────────────────────────────
+export const authAPI = {
+  login:    (email, password) => api.post('/api/auth/login', { email, password }),
+  me:       ()                => api.get('/api/auth/me'),
+  getUsers: ()                => api.get('/api/auth/users'),
+  register: (data)            => api.post('/api/auth/register', data),
+};
 
-// ─── Health ───
+// ─── DEPARTMENTS ────────────────────────
+export const departmentsAPI = {
+  getAll: ()    => api.get('/api/departments'),
+  create: (data) => api.post('/api/departments', data),
+  delete: (id)  => api.delete(`/api/departments/${id}`),
+};
 
-export async function checkHealth() {
-  try {
-    const res = await fetch(`${API_BASE}/api/health`);
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
+// ─── USERS ──────────────────────────────
+export const usersAPI = {
+  getAll:  ()          => api.get('/api/auth/users'),
+  create:  (data)      => api.post('/api/auth/users', data),
+  update:  (id, data)  => api.put(`/api/auth/users/${id}`, data), 
+  delete:  (id)        => api.delete(`/api/auth/users/${id}`),
+  getFaculty: ()         => api.get('/api/auth/faculty'), 
+};
+// ─── CLASSES ────────────────────────────
+export const classesAPI = {
+  getAll:     ()         => api.get('/api/classes'),
+  create:     (data)     => api.post('/api/classes', data),
+  update:     (id, data) => api.put(`/api/classes/${id}`, data),
+  delete:     (id)       => api.delete(`/api/classes/${id}`),
+  getFaculty: (id)       => api.get(`/api/classes/${id}/faculty`),
+};
+
+// ─── SUBJECTS ───────────────────────────
+export const subjectsAPI = {
+  getByDept: (deptId, year) => api.get(`/api/subjects/${deptId}/${year}`),
+  create:    (data)         => api.post('/api/subjects', data),
+};
+
+// ─── TIMETABLE ──────────────────────────────────────────
+export const timetableAPI = {
+  get:              (classId)        => api.get(`/api/timetable/${classId}`),
+  save:             (classId, slots) => api.post(`/api/timetable/${classId}`, slots), // ✅ pass array directly
+  publish:          (classId)        => api.post(`/api/timetable/${classId}/publish`),
+  getCurrentPeriod: (classId)        => api.get(`/api/timetable/${classId}/current-period`),
+  getTimings:       ()               => api.get('/api/period-timings'),
+};
+
+// ─── NOTIFICATIONS ──────────────────────
+export const notificationsAPI = {
+  send:      (data)    => api.post('/api/notifications', data),
+  getActive: (classId) => api.get(`/api/notifications/active/${classId}`),
+  delete:    (id)      => api.delete(`/api/notifications/${id}`),
+};
+
+// ─── ANNOUNCEMENTS ──────────────────────
+export const announcementsAPI = {
+  getAll:    ()      => api.get('/api/announcements'),
+  getByDept: (deptId) => api.get(`/api/announcements/${deptId}`),
+  create:    (data)  => api.post('/api/announcements', data),
+  delete:    (id)    => api.delete(`/api/announcements/${id}`),
+};
+
+// ─── DEVICES ────────────────────────────
+export const devicesAPI = {
+  getStatus: ()                    => api.get('/api/devices/status'),
+  heartbeat: (classId, ipAddress)  => api.post('/api/device/heartbeat', { class_id: classId, ip_address: ipAddress }),
+};
+
+// ─── LEGACY ALIASES ─────────────────────
+export const getClasses        = ()            => classesAPI.getAll();
+export const getTimetable      = (classId)     => timetableAPI.get(classId);
+export const getDepartments    = ()            => departmentsAPI.getAll();
+export const deleteDepartment  = (id)          => departmentsAPI.delete(id);
+export const getNotifications  = (classId)     => notificationsAPI.getActive(classId);
+export const sendNotification  = (data)        => notificationsAPI.send(data);
+export const getAnnouncements  = ()            => announcementsAPI.getAll();
+export const createClass       = (data)        => classesAPI.create(data);
+export const updateClass       = (id, data)    => classesAPI.update(id, data);
+export const deleteClass       = (id)          => classesAPI.delete(id);
+export const saveTimetable     = (classId, slots) => timetableAPI.save(classId, slots);
+export const publishTimetable  = (classId)     => timetableAPI.publish(classId);
+export const getSubjects       = (deptId, year) => subjectsAPI.getByDept(deptId, year);
+export const getDeviceStatus   = ()            => devicesAPI.getStatus();
+
+export default api;

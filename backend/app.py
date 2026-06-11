@@ -1,163 +1,131 @@
-from flask import Flask, request, jsonify
+import os
+from flask import Flask
 from flask_cors import CORS
-import json
-
-from mqtt_publisher import publish_timetable, publish_notices, publish_settings
-from database import (init_db, get_all_classes, get_timetable, save_timetable,
-                      create_class, delete_class, get_notices, save_notices,
-                      get_class_settings, save_class_settings)
-
-app = Flask(__name__)
-CORS(app)
-
-init_db()
+from flask_jwt_extended import JWTManager
+from flask_migrate import Migrate
+from config import config
+from models import db, Department, User, PeriodTiming
+from routes import register_blueprints
+from mqtt_publisher import mqtt_publisher
+from datetime import datetime, time
 
 
-# =========================================================
-# CLASSES
-# =========================================================
-@app.route("/api/classes", methods=["GET"])
-def api_get_classes():
-    return jsonify(get_all_classes()), 200
+def create_app(config_name='development'):
+    """Application factory"""
+    app = Flask(__name__)
+    
+    # Load configuration
+    app.config.from_object(config[config_name])
+    
+    # Initialize extensions
+    db.init_app(app)
+    JWTManager(app)
+    migrate = Migrate(app, db)
+    CORS(app, resources={r"/api/*": {"origins": app.config['CORS_ORIGINS']}})
+    
+    # Register blueprints
+    register_blueprints(app)
+    
+    # Create uploads folder
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    
+    # Serve uploaded files
+    @app.route('/uploads/<filename>')
+    def serve_upload(filename):
+        return app.send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    
+    # Health check endpoint
+    @app.route('/', methods=['GET'])
+    def health_check():
+        return {'status': 'E-Display Backend Running', 'version': '1.0'}, 200
+    
+    # Error handlers
+    @app.errorhandler(404)
+    def not_found(error):
+        """Handle 404 errors"""
+        return {'message': 'Resource not found'}, 404
+    
+    @app.errorhandler(500)
+    def internal_error(error):
+        """Handle 500 errors"""
+        db.session.rollback()
+        return {'message': 'Internal server error'}, 500
+    
+    return app
 
-@app.route("/api/classes", methods=["POST"])
-def api_create_class():
-    body = request.json or {}
-    name = (body.get("name") or "").strip().upper()
-    if not name:
-        return jsonify({"status": "error", "message": "Class name is required"}), 400
-    if len(name) > 20:
-        return jsonify({"status": "error", "message": "Class name too long (max 20 chars)"}), 400
-    created = create_class(name)
-    if not created:
-        return jsonify({"status": "error", "message": f"Class '{name}' already exists"}), 409
-    return jsonify({"status": "ok", "message": f"Class '{name}' created"}), 201
 
-@app.route("/api/classes/<class_name>", methods=["DELETE"])
-def api_delete_class(class_name):
-    deleted = delete_class(class_name)
-    if not deleted:
-        return jsonify({"status": "error", "message": "Class not found"}), 404
-    return jsonify({"status": "ok", "message": f"Class '{class_name}' deleted"}), 200
-
-
-# =========================================================
-# TIMETABLE
-# =========================================================
-@app.route("/api/timetable/<class_name>", methods=["GET"])
-def api_get_timetable(class_name):
-    return jsonify(get_timetable(class_name)), 200
-
-@app.route("/api/timetable/<class_name>", methods=["POST"])
-def api_save_timetable(class_name):
-    data = request.json
-    if not data:
-        return jsonify({"status": "error", "message": "No data provided"}), 400
+def seed_data():
+    """Seed initial data on first startup"""
+    
+    # Check if departments already exist
+    if Department.query.first() is not None:
+        return
+    
     try:
-        updated_at = save_timetable(class_name, data)
-        return jsonify({"status": "ok", "message": "saved", "updatedAt": updated_at}), 200
+        # Create departments
+        departments_data = ['CSE', 'ECE', 'MECH', 'DS']
+        departments = {}
+        
+        for dept_name in departments_data:
+            dept = Department(name=dept_name)
+            db.session.add(dept)
+            db.session.flush()
+            departments[dept_name] = dept
+        
+        # Create principal account
+        principal = User(
+            name='Principal',
+            email='principal@edisplay.com',
+            role='principal',
+            is_active=True
+        )
+        principal.set_password('Principal@123')
+        db.session.add(principal)
+        
+        # Create default period timings
+        timings_data = [
+            {'period': 1, 'start': '09:00', 'end': '10:00', 'label': None},
+            {'period': 2, 'start': '10:00', 'end': '10:50', 'label': None},
+            {'period': 3, 'start': '10:50', 'end': '11:00', 'label': 'Break'},
+            {'period': 4, 'start': '11:00', 'end': '11:50', 'label': None},
+            {'period': 5, 'start': '11:50', 'end': '12:40', 'label': None},
+            {'period': 6, 'start': '12:40', 'end': '13:30', 'label': 'Lunch'},
+            {'period': 7, 'start': '13:30', 'end': '14:20', 'label': None},
+            {'period': 8, 'start': '14:20', 'end': '15:10', 'label': None},
+            {'period': 9, 'start': '15:10', 'end': '16:00', 'label': None},
+        ]
+        
+        for timing_data in timings_data:
+            timing = PeriodTiming(
+                period_number=timing_data['period'],
+                start_time=datetime.strptime(timing_data['start'], '%H:%M').time(),
+                end_time=datetime.strptime(timing_data['end'], '%H:%M').time(),
+                label=timing_data.get('label')
+            )
+            db.session.add(timing)
+        
+        db.session.commit()
+        print("✓ Database seeded with initial data")
+        print(f"  - Departments: {', '.join(departments_data)}")
+        print(f"  - Principal account: principal@edisplay.com / Principal@123")
+        print(f"  - Period timings: 9 periods configured")
+    
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route("/api/timetable/<class_name>/publish", methods=["POST"])
-def publish_timetable_api(class_name):
-    data = request.json
-    if not data:
-        return jsonify({"status": "error", "message": "No data provided"}), 400
-    try:
-        save_timetable(class_name, data)
-    except Exception as e:
-        return jsonify({"status": "error", "message": f"Save failed: {e}"}), 500
-    mqtt_status = "ok"
-    try:
-        publish_timetable(class_name, data)
-    except Exception as e:
-        mqtt_status = f"mqtt_error: {e}"
-    return jsonify({"status": "ok", "message": "published", "mqtt": mqtt_status}), 200
+        db.session.rollback()
+        print(f"✗ Error seeding data: {str(e)}")
 
 
-# =========================================================
-# NOTICES
-# =========================================================
-@app.route("/api/notices", methods=["GET"])
-def api_get_notices():
-    return jsonify(get_notices()), 200
-
-@app.route("/api/notices", methods=["POST"])
-def api_save_notices():
-    data = request.json
-    if not isinstance(data, list):
-        return jsonify({"status": "error", "message": "Expected a list of notice strings"}), 400
-    save_notices(data)
-    return jsonify({"status": "ok", "message": "Notices saved"}), 200
-
-@app.route("/api/notices/publish", methods=["POST"])
-def api_publish_notices():
-    body = request.json
-    if not body:
-        return jsonify({"status": "error", "message": "No data provided"}), 400
-
-    # Normalize: accept plain list of strings OR list of {text, target} objects
-    if isinstance(body, list):
-        if len(body) == 0:
-            return jsonify({"status": "error", "message": "No notices provided"}), 400
-        if isinstance(body[0], str):
-            # old format — wrap each as {text, target: "all"}
-            notices = [{"text": t, "target": "all"} for t in body if t.strip()]
-        else:
-            notices = [n for n in body if n.get("text", "").strip()]
-    else:
-        return jsonify({"status": "error", "message": "Expected a list"}), 400
-
-    if not notices:
-        return jsonify({"status": "error", "message": "No valid notices"}), 400
-
-    save_notices(notices)
-
-    try:
-        publish_notices(notices)
-    except Exception as e:
-        return jsonify({"status": "ok", "message": "saved", "mqtt": f"error: {e}"}), 200
-
-    return jsonify({"status": "ok", "message": f"Published {len(notices)} notice(s)"}), 200
+# Create app instance for Flask CLI
+app = create_app(os.environ.get('FLASK_ENV', 'development'))
 
 
-# =========================================================
-# CLASS SETTINGS
-# =========================================================
-@app.route("/api/settings/<class_name>", methods=["GET"])
-def api_get_settings(class_name):
-    return jsonify(get_class_settings(class_name)), 200
-
-@app.route("/api/settings/<class_name>", methods=["POST"])
-def api_save_settings(class_name):
-    data = request.json
-    if not data:
-        return jsonify({"status": "error", "message": "No data provided"}), 400
-    save_class_settings(class_name, data)
-    return jsonify({"status": "ok", "message": "Settings saved"}), 200
-
-@app.route("/api/settings/<class_name>/publish", methods=["POST"])
-def api_publish_settings(class_name):
-    data = request.json
-    if not data:
-        return jsonify({"status": "error", "message": "No data provided"}), 400
-    save_class_settings(class_name, data)
-    try:
-        publish_settings(class_name, data)
-    except Exception as e:
-        return jsonify({"status": "ok", "message": "saved", "mqtt": f"error: {e}"}), 200
-    return jsonify({"status": "ok", "message": "Settings published"}), 200
-
-
-# =========================================================
-@app.route("/api/health", methods=["GET"])
-def health():
-    return jsonify({"status": "ok", "service": "E-Display Backend"}), 200
-
-@app.route("/")
-def index():
-    return "E-Display Backend is running", 200
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+if __name__ == '__main__':
+    # Initialize database only when running directly
+    with app.app_context():
+        db.create_all()
+        seed_data()
+        
+        # Connect MQTT broker
+        mqtt_publisher.connect()
+    
+    app.run(debug=True, host='0.0.0.0', port=5000)

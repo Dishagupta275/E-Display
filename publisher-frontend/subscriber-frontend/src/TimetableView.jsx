@@ -1,17 +1,29 @@
-import React from "react";
-
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-export default function TimetableView({ periods, week, currentDay, currentIdx }) {
+export default function TimetableView({ timings, timetable, currentDay, currentIdx }) {
+  if (!timings || timings.length === 0) {
+    return (
+      <div style={{ textAlign: "center", padding: 40, color: "#666" }}>
+        Loading timetable...
+      </div>
+    );
+  }
+
   return (
     <div className="tt-container">
       <table className="tt-table">
         <thead>
           <tr>
-            <th className="tt-head dark">TIME / DAY</th>
-            {periods.map((time, i) => (
+            <th className="tt-head dark">DAY / PERIOD</th>
+            {timings.map((timing, i) => (
               <th key={i} className="tt-head dark">
-                {time}
+                <div>P{timing.period_number}</div>
+                <div style={{ fontSize: 11, opacity: 0.8, fontWeight: 400 }}>
+                  {timing.start_time}–{timing.end_time}
+                </div>
+                {timing.label && (
+                  <div style={{ fontSize: 10, color: "#ffcc80" }}>{timing.label}</div>
+                )}
               </th>
             ))}
           </tr>
@@ -20,52 +32,44 @@ export default function TimetableView({ periods, week, currentDay, currentIdx })
         <tbody>
           {DAYS.map((day) => (
             <tr key={day}>
-              {/* DAY HEADER — highlight today */}
-              <td
-                className="tt-day dark"
-                style={day === currentDay ? {
-                  background: "#1a1a1a",
-                  borderLeft: "4px solid #ff1a00",
-                } : {}}
-              >
+              {/* Day label */}
+              <td className={`tt-day dark ${day === currentDay ? "current-day" : ""}`}>
                 {day}
                 {day === currentDay && (
-                  <div style={{ fontSize: 11, fontWeight: 400, marginTop: 2, color: "#ff6b6b" }}>
-                    TODAY
-                  </div>
+                  <div style={{ fontSize: 10, color: "#ffcc80", marginTop: 2 }}>TODAY</div>
                 )}
               </td>
 
-              {/* SUBJECT SLOTS */}
-              {(week[day] || []).map((slot, idx) => {
-                let subject = "";
-                let professor = "";
+              {/* Slots */}
+              {timings.map((timing, idx) => {
+                const daySlots = timetable[day] || [];
+                const slot = daySlots.find(s => s.period_number === timing.period_number);
 
-                if (typeof slot === "string") {
-                  subject = slot;
-                } else if (Array.isArray(slot)) {
-                  subject = slot[0] || "";
-                  professor = slot[1] || "";
-                } else if (slot && typeof slot === "object") {
-                  subject = slot.subject || "";
-                  professor = slot.professor || "";
-                }
+                const isBreak = timing.label === "Break" || timing.label === "Lunch";
+                const isCurrent = day === currentDay && idx === currentIdx;
+                const hasSubject = slot?.subject_name;
 
                 let cellClass = "tt-cell";
-
-                if (subject.toUpperCase().includes("LAB"))    cellClass += " lab";
-                else if (subject.toUpperCase().includes("BREAK") || subject.toUpperCase().includes("LUNCH")) cellClass += " break";
-                else if (subject.toUpperCase().includes("SPORTS") || subject.toUpperCase().includes("LIBRARY")) cellClass += " sports";
-
-                // Red outline only on current period of today
-                if (day === currentDay && idx === currentIdx) {
-                  cellClass += " today";
-                }
+                if (isBreak) cellClass += " break";
+                else if (hasSubject && hasSubject.includes("LAB")) cellClass += " lab";
+                if (isCurrent && !isBreak) cellClass += " current";
 
                 return (
                   <td key={idx} className={cellClass}>
-                    <div className="subject-text">{subject || " "}</div>
-                    {professor && <div className="faculty-text">{professor}</div>}
+                    {isBreak ? (
+                      <div className="subject-text" style={{ color: "#888", fontStyle: "italic" }}>
+                        {timing.label}
+                      </div>
+                    ) : (
+                      <>
+                        <div className="subject-text">
+                          {slot?.subject_name || "—"}
+                        </div>
+                        {slot?.faculty_name && (
+                          <div className="faculty-text">{slot.faculty_name}</div>
+                        )}
+                      </>
+                    )}
                   </td>
                 );
               })}

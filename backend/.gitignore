@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+uploads/*
+!uploads/.gitkeep
+migrations/versions/
+venv/
+.vscode/
+*.sqlite
+*.db

@@ -1,0 +1,160 @@
+/* ── ClassSelect Screen ──────────────────────── */
+
+.class-select-screen {
+  min-height: 100vh;
+  background: #0a0f1e;
+  font-family: 'Segoe UI', sans-serif;
+  display: flex;
+  flex-direction: column;
+  background-image:
+    radial-gradient(ellipse at 10% 80%, rgba(30, 60, 120, 0.25) 0%, transparent 55%);
+}
+
+.cs-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 36px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cs-dept-badge {
+  background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  padding: 6px 16px;
+  border-radius: 20px;
+}
+
+.cs-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.cs-user {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.cs-body {
+  flex: 1;
+  padding: 36px 40px;
+  overflow-y: auto;
+}
+
+.cs-year-group {
+  margin-bottom: 40px;
+}
+
+.cs-year-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: rgba(255, 255, 255, 0.35);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.cs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.cs-room-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 24px 20px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cs-room-card:hover {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.5);
+  transform: translateY(-2px);
+}
+
+.cs-room-name {
+  font-size: 22px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 1px;
+}
+
+.cs-room-number {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 1px;
+}
+
+.cs-room-incharge {
+  font-size: 12px;
+  color: rgba(99, 179, 237, 0.8);
+  margin-top: 4px;
+}
+
+.cs-room-arrow {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.2);
+  transition: color 0.2s;
+}
+
+.cs-room-card:hover .cs-room-arrow {
+  color: rgba(99, 179, 237, 0.8);
+}
+
+.cs-loading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 15px;
+  padding: 60px 0;
+  justify-content: center;
+}
+
+.cs-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.cs-error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  border-radius: 10px;
+  padding: 16px 20px;
+  font-size: 14px;
+  margin-top: 20px;
+}
+
+.cs-empty {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 15px;
+  padding: 60px 0;
+  text-align: center;
+}

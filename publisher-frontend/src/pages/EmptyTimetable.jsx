@@ -1,63 +1,51 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { getTimetable, saveTimetable, publishTimetable } from "../utils/api";
 import { useParams } from "react-router-dom";
-import { useToast } from "../components/Toast";
 
-const c = {
-  bg: "#f5f4f0", surface: "#ffffff", border: "#e2e0d8",
-  borderHover: "#c8c5ba", text: "#1a1917", textMuted: "#7a7670",
-  textSubtle: "#b0ada6", accent: "#2d2b28", accentHover: "#454340",
-  tag: "#eeece7", tagText: "#6b6760",
-};
-const font = "'Nunito', 'Helvetica Neue', sans-serif";
-
-const DEFAULT_PERIODS = [
-  "9:00am-10:00am", "10:00am-10:50am", "10:50-11:00",
-  "11:00am-11:50am", "11:50am-12:40pm", "12:40-1:30",
-  "1:30pm-2:20pm", "2:20pm-3:10pm", "3:10pm-4:00pm",
-];
+/**
+ * EmptyTimetable page loads an existing JSON (which may be empty strings for subjects)
+ * and allows the publisher to fill subjects and save/publish.
+ */
 
 export default function EmptyTimetable() {
   const { classname } = useParams();
   const [data, setData] = useState(null);
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
-  const originalRef = useRef(null);
-  const { addToast, ToastContainer } = useToast();
+
+  // ✅ REQUIRED TIME SLOTS
+  const DEFAULT_PERIODS = [
+    "9:00am-10:00am",
+    "10:00am-10:50am",
+    "10:50-11:00",
+    "11:00am-11:50am",
+    "11:50am-12:40pm",
+    "12:40-1:30",
+    "1:30pm-2:20pm",
+    "2:20pm-3:10pm",
+    "3:10pm-4:00pm",
+  ];
 
   useEffect(() => {
     getTimetable(classname)
-      .then((d) => {
-        if (!d || !d.week) {
-          const empty = makeEmptyData();
-          setData(empty);
-          originalRef.current = JSON.stringify(empty);
-        } else {
-          setData(d);
-          originalRef.current = JSON.stringify(d);
-        }
-      })
+      .then((d) => setData(d))
       .catch(() => {
-        const empty = makeEmptyData();
-        setData(empty);
-        originalRef.current = JSON.stringify(empty);
+        // create a new empty structure if not found
+        setData({
+          class: classname,
+          updatedAt: new Date().toISOString(),
+          periods: DEFAULT_PERIODS,
+          week: {
+            Monday: Array(DEFAULT_PERIODS.length).fill(""),
+            Tuesday: Array(DEFAULT_PERIODS.length).fill(""),
+            Wednesday: Array(DEFAULT_PERIODS.length).fill(""),
+            Thursday: Array(DEFAULT_PERIODS.length).fill(""),
+            Friday: Array(DEFAULT_PERIODS.length).fill(""),
+            Saturday: Array(DEFAULT_PERIODS.length).fill(""),
+          },
+        });
       });
   }, [classname]);
-
-  const makeEmptyData = () => ({
-    class: classname,
-    updatedAt: new Date().toISOString(),
-    periods: DEFAULT_PERIODS,
-    week: {
-      Monday: Array(DEFAULT_PERIODS.length).fill(""),
-      Tuesday: Array(DEFAULT_PERIODS.length).fill(""),
-      Wednesday: Array(DEFAULT_PERIODS.length).fill(""),
-      Thursday: Array(DEFAULT_PERIODS.length).fill(""),
-      Friday: Array(DEFAULT_PERIODS.length).fill(""),
-      Saturday: Array(DEFAULT_PERIODS.length).fill(""),
-    },
-  });
 
   const updateCell = (day, idx, value) => {
     setData((prev) => {
@@ -67,104 +55,54 @@ export default function EmptyTimetable() {
       next.updatedAt = new Date().toISOString();
       return next;
     });
-    setHasChanges(true);
   };
 
   const onSave = async () => {
     setSaving(true);
-    try {
-      await saveTimetable(classname, data);
-      originalRef.current = JSON.stringify(data);
-      setHasChanges(false);
-      addToast("Timetable saved successfully!", "success");
-    } catch (err) { addToast("Save failed: " + err.message, "error"); }
-    finally { setSaving(false); }
+    await saveTimetable(classname, data);
+    setSaving(false);
+    alert("Saved locally");
   };
 
   const onPublish = async () => {
     setPublishing(true);
-    try {
-      await publishTimetable(classname, data);
-      originalRef.current = JSON.stringify(data);
-      setHasChanges(false);
-      addToast("Published to displays via MQTT!", "success");
-    } catch (err) { addToast("Publish failed: " + err.message, "error"); }
-    finally { setPublishing(false); }
+    await publishTimetable(classname, data);
+    setPublishing(false);
+    alert("Published via backend to MQTT");
   };
 
-  const onClearAll = () => {
-    if (!data) return;
-    setData((prev) => {
-      const next = { ...prev, week: { ...prev.week } };
-      Object.keys(next.week).forEach((day) => {
-        next.week[day] = Array(prev.periods.length).fill("");
-      });
-      next.updatedAt = new Date().toISOString();
-      return next;
-    });
-    setHasChanges(true);
-    addToast("All subjects cleared", "info");
-  };
-
-  if (!data) return (
-    <div style={{ textAlign: "center", padding: 40, fontFamily: font }}>
-      <div className="loading-spinner" />
-      <p style={{ color: c.textMuted, marginTop: 12 }}>Loading timetable...</p>
-    </div>
-  );
+  if (!data) return <div>Loading...</div>;
 
   return (
-    <div style={{ maxWidth: 1000, margin: "0 auto", fontFamily: font, color: c.text }}>
-      <ToastContainer />
+    <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+      <h2>Empty Timetable — {classname}</h2>
 
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 24 }}>
-        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: c.text }}>
-          Empty Timetable — {classname}
-        </h2>
-        {hasChanges && (
-          <span style={{
-            padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700,
-            background: "#fef3c7", color: "#92400e",
-            border: "1.5px solid #fde68a",
-          }}>
-            Unsaved changes
-          </span>
-        )}
-      </div>
-
-      {/* Days */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ marginTop: 12 }}>
         {Object.keys(data.week).map((day) => (
-          <div key={day} style={{
-            background: c.surface, border: `1.5px solid ${c.border}`,
-            borderRadius: 20, padding: "18px 20px",
-          }}>
-            <h4 style={{
-              margin: "0 0 14px", fontSize: 13, fontWeight: 800,
-              color: c.textMuted, letterSpacing: "0.06em", textTransform: "uppercase",
-            }}>{day}</h4>
+          <div key={day} style={{ marginBottom: 18 }}>
+            <h4 style={{ marginBottom: 6 }}>{day}</h4>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               {data.periods.map((p, idx) => (
-                <div key={idx} style={{ display: "flex", flexDirection: "column", minWidth: 155 }}>
-                  <div style={{
-                    fontSize: 11, fontWeight: 700, color: c.textSubtle,
-                    background: c.tag, padding: "4px 8px", borderRadius: 8,
-                    marginBottom: 5, letterSpacing: "0.02em",
-                  }}>{p}</div>
+                <div
+                  key={idx}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    minWidth: 160,
+                  }}
+                >
+                  <div style={{ fontSize: 12, color: "#555" }}>{p}</div>
+
                   <input
                     value={data.week[day][idx]}
                     placeholder="Subject"
                     onChange={(e) => updateCell(day, idx, e.target.value)}
                     style={{
-                      padding: "8px 10px", fontSize: 13, fontFamily: font,
-                      border: `1.5px solid ${c.border}`, borderRadius: 10,
-                      background: c.bg, color: c.text, outline: "none",
-                      transition: "border-color 0.15s",
+                      padding: 8,
+                      borderRadius: 6,
+                      border: "1px solid #ccc",
                     }}
-                    onFocus={(e) => e.target.style.borderColor = c.borderHover}
-                    onBlur={(e) => e.target.style.borderColor = c.border}
                   />
                 </div>
               ))}
@@ -173,37 +111,42 @@ export default function EmptyTimetable() {
         ))}
       </div>
 
-      {/* Actions */}
-      <div style={{ marginTop: 20, display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <Btn onClick={onSave} disabled={saving} variant="secondary">
-          {saving ? "Saving..." : "💾 Save"}
-        </Btn>
-        <Btn onClick={onPublish} disabled={publishing} variant="primary">
-          {publishing ? "Publishing..." : "📡 Publish"}
-        </Btn>
-        <Btn onClick={onClearAll} variant="ghost">🗑️ Clear All</Btn>
-      </div>
+      <div style={{ marginTop: 20 }}>
+        <button
+          onClick={onSave}
+          style={primaryBtn}
+          disabled={saving}
+        >
+          {saving ? "Saving..." : "Save"}
+        </button>
 
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');`}</style>
+        <button
+          onClick={onPublish}
+          style={secondaryBtn}
+          disabled={publishing}
+        >
+          {publishing ? "Publishing..." : "Publish"}
+        </button>
+      </div>
     </div>
   );
 }
 
-function Btn({ onClick, disabled, variant = "ghost", children }) {
-  const variants = {
-    primary: { background: c.accent, color: "#fff", borderColor: c.accent },
-    secondary: { background: c.surface, color: c.text, borderColor: c.border },
-    ghost: { background: c.tag, color: c.textMuted, borderColor: c.border },
-  };
-  return (
-    <button onClick={onClick} disabled={disabled} style={{
-      padding: "10px 20px", fontSize: 13, fontWeight: 800,
-      fontFamily: font, cursor: "pointer", borderRadius: 12,
-      border: "1.5px solid", opacity: disabled ? 0.6 : 1,
-      transition: "all 0.15s", ...variants[variant],
-    }}
-      onMouseEnter={(e) => { if (!disabled) e.currentTarget.style.transform = "translateY(-1px)"; }}
-      onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; }}
-    >{children}</button>
-  );
-}
+const primaryBtn = {
+  padding: "8px 14px",
+  marginRight: 8,
+  background: "#0ea5e9",
+  color: "#fff",
+  border: "none",
+  borderRadius: 6,
+  cursor: "pointer",
+};
+
+const secondaryBtn = {
+  padding: "8px 14px",
+  background: "#e2e8f0",
+  color: "#000",
+  border: "none",
+  borderRadius: 6,
+  cursor: "pointer",
+};

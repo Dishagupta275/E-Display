@@ -1,165 +1,110 @@
-import React, { useEffect, useState } from "react";
-import { getClasses, deleteClass } from "../utils/api";
-import { useNavigate, useParams, Link } from "react-router-dom";
-import ConfirmModal from "../components/ConfirmModal";
-import { useToast } from "../components/Toast";
-
-const c = {
-  bg: "#f5f4f0", surface: "#ffffff", border: "#e2e0d8",
-  borderHover: "#c8c5ba", text: "#1a1917", textMuted: "#7a7670",
-  textSubtle: "#b0ada6", accent: "#2d2b28", accentHover: "#454340",
-  tag: "#eeece7", tagText: "#6b6760",
-};
-const font = "'Nunito', 'Helvetica Neue', sans-serif";
+import { useEffect, useState } from "react";
+import { classesAPI } from "../utils/api";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 export default function ClassSelect() {
-  const [classes, setClasses] = useState([]);
+  const [classes, setClasses] = useState({});
   const [loading, setLoading] = useState(true);
-  const [delTarget, setDelTarget] = useState(null);
   const nav = useNavigate();
-  const { mode } = useParams();
-  const { addToast, ToastContainer } = useToast();
+  const { currentUser, logout } = useAuth();
 
-  const loadClasses = () => {
-    setLoading(true);
-    getClasses()
-      .then((c) => setClasses(Array.isArray(c) ? c : []))
-      .catch(() => { setClasses([]); addToast("Failed to load classes", "error"); })
+  useEffect(() => {
+    classesAPI.getAll()
+      .then(res => setClasses(res.data || {}))
+      .catch(err => console.error("Failed to load classes", err))
       .finally(() => setLoading(false));
-  };
-
-  useEffect(() => { loadClasses(); }, []);
-
-  const handleDelete = async () => {
-    if (!delTarget) return;
-    try {
-      await deleteClass(delTarget);
-      addToast(`Class "${delTarget}" deleted`, "success");
-      setDelTarget(null);
-      loadClasses();
-    } catch (err) {
-      addToast(err.message, "error");
-      setDelTarget(null);
-    }
-  };
+  }, []);
 
   return (
-    <div style={{ maxWidth: 860, margin: "0 auto", fontFamily: font, color: c.text }}>
-      <ToastContainer />
-
+    <div style={styles.container}>
       {/* Header */}
-      <div style={{ marginBottom: 28 }}>
-        <h2 style={{ margin: "0 0 5px", fontSize: 22, fontWeight: 800, color: c.text }}>
-          {mode === "empty" ? "📝 Empty Timetable" : "📋 Update Timetable"}
-        </h2>
-        <p style={{ margin: 0, fontSize: 13, color: c.textMuted }}>
-          Select a class to {mode === "empty" ? "fill a blank timetable" : "edit an existing timetable"}.
-        </p>
+      <div style={styles.header}>
+        <div>
+          <h1 style={styles.title}>E-DISPLAY</h1>
+          <p style={styles.subtitle}>Select Class — Timetable Management</p>
+        </div>
+        <div style={styles.headerRight}>
+          <button onClick={() => nav("/dashboard")} style={styles.backBtn}>← Dashboard</button>
+          <button onClick={logout} style={styles.logoutBtn}>Logout</button>
+        </div>
       </div>
 
-      {loading ? (
-        <div style={{ textAlign: "center", padding: 48 }}>
-          <div className="loading-spinner" />
-          <p style={{ color: c.textMuted, marginTop: 12, fontSize: 13 }}>Loading classes...</p>
-        </div>
-      ) : classes.length === 0 ? (
-        <div style={{
-          textAlign: "center", padding: "48px 20px",
-          border: `1.5px dashed ${c.border}`, borderRadius: 20, color: c.textMuted,
-        }}>
-          <div style={{ fontSize: 36, marginBottom: 10 }}>🏫</div>
-          <p style={{ fontSize: 15, margin: "0 0 6px" }}>No classes found</p>
-          <p style={{ fontSize: 13, margin: 0 }}>
-            Go to the{" "}
-            <Link to="/" style={{ color: c.accent, fontWeight: 700 }}>Dashboard</Link>
-            {" "}to create one.
-          </p>
-        </div>
-      ) : (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-          gap: 12, marginTop: 4,
-        }}>
-          {classes.map((cls) => {
-            const name = typeof cls === "string" ? cls : cls.name;
-            return <ClassCard
-              key={name}
-              name={name}
-              mode={mode}
-              onOpen={() => nav(mode === "empty" ? `/empty/${name}` : `/week/${name}`)}
-              onDayEdit={() => nav(`/day/${name}/Monday`)}
-              onDelete={() => setDelTarget(name)}
-            />;
-          })}
-        </div>
-      )}
+      <div style={styles.content}>
+        <h2 style={styles.pageTitle}>🗓 Select a Class to Manage Timetable</h2>
 
-      <ConfirmModal
-        open={!!delTarget}
-        title="Delete Class"
-        message={`Are you sure you want to delete "${delTarget}"? This will permanently remove the class and its timetable.`}
-        onCancel={() => setDelTarget(null)}
-        onConfirm={handleDelete}
-      />
-
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');`}</style>
-    </div>
-  );
-}
-
-function ClassCard({ name, mode, onOpen, onDayEdit, onDelete }) {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        background: "#fff",
-        border: `1.5px solid ${hovered ? c.borderHover : c.border}`,
-        borderRadius: 16, padding: "16px 16px 14px",
-        boxShadow: hovered ? "0 6px 20px rgba(0,0,0,0.07)" : "0 1px 4px rgba(0,0,0,0.04)",
-        transform: hovered ? "translateY(-2px)" : "translateY(0)",
-        transition: "all 0.18s",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 12 }}>
-        <div style={{ fontWeight: 900, fontSize: 22, letterSpacing: "0.5px", color: c.text }}>{name}</div>
-        <button
-          onClick={onDelete}
-          title="Delete class"
-          style={{
-            width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 12, background: c.tag, color: c.textSubtle,
-            border: `1.5px solid ${c.border}`, borderRadius: 8,
-            cursor: "pointer", transition: "all 0.15s", flexShrink: 0,
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = "#fdeaea"; e.currentTarget.style.color = "#c84040"; e.currentTarget.style.borderColor = "#f0cece"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = c.tag; e.currentTarget.style.color = c.textSubtle; e.currentTarget.style.borderColor = c.border; }}
-        >✕</button>
-      </div>
-
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        <button onClick={onOpen} style={btnStyle(true)}
-          onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-1px)"}
-          onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}
-        >Open</button>
-        {mode === "update" && (
-          <button onClick={onDayEdit} style={btnStyle(false)}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = c.borderHover; e.currentTarget.style.transform = "translateY(-1px)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = c.border; e.currentTarget.style.transform = "translateY(0)"; }}
-          >Day Edit</button>
+        {loading ? (
+          <div style={styles.loading}>Loading classes...</div>
+        ) : Object.keys(classes).length === 0 ? (
+          <div style={styles.empty}>
+            No classes found. <button onClick={() => nav("/classes")} style={styles.linkBtn}>Create classes first</button>
+          </div>
+        ) : (
+          Object.entries(classes).map(([deptName, years]) => (
+            <div key={deptName} style={styles.deptSection}>
+              <h3 style={styles.deptTitle}>{deptName}</h3>
+              {Object.entries(years).map(([yearKey, classList]) => (
+                classList.length > 0 && (
+                  <div key={yearKey} style={styles.yearSection}>
+                    <h4 style={styles.yearTitle}>Year {yearKey.replace("year_", "")}</h4>
+                    <div style={styles.classGrid}>
+                      {classList.map(cls => (
+                        <div key={cls.id} style={styles.classCard}>
+                          <div style={styles.classTop}>
+                            <span style={styles.className}>{cls.display_name}</span>
+                            <span style={styles.roomBadge}>Room {cls.room_number || "N/A"}</span>
+                          </div>
+                          <div style={styles.classActions}>
+                            <button
+                              onClick={() => nav(`/timetable/${cls.id}/week`)}
+                              style={styles.primaryBtn}
+                            >
+                              🗓 Edit Week
+                            </button>
+                            <button
+                              onClick={() => nav(`/timetable/${cls.id}/day`)}
+                              style={styles.secondaryBtn}
+                            >
+                              📅 Day Edit
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              ))}
+            </div>
+          ))
         )}
       </div>
     </div>
   );
 }
 
-const btnStyle = (primary) => ({
-  padding: "6px 14px", fontSize: 12, fontWeight: 700,
-  fontFamily: font, cursor: "pointer", borderRadius: 9,
-  border: `1.5px solid ${primary ? c.accent : c.border}`,
-  background: primary ? c.accent : c.surface,
-  color: primary ? "#fff" : c.textMuted,
-  transition: "all 0.13s",
-});
+const styles = {
+  container: { minHeight: "100vh", background: "#f0f4f8", fontFamily: "sans-serif" },
+  header: { background: "linear-gradient(135deg, #1a237e, #0d47a1)", color: "#fff", padding: "20px 32px", display: "flex", justifyContent: "space-between", alignItems: "center" },
+  title: { margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: 2 },
+  subtitle: { margin: "4px 0 0", fontSize: 13, opacity: 0.8 },
+  headerRight: { display: "flex", gap: 8 },
+  backBtn: { padding: "8px 16px", background: "rgba(255,255,255,0.2)", color: "#fff", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 6, cursor: "pointer", fontSize: 13 },
+  logoutBtn: { padding: "8px 16px", background: "rgba(255,255,255,0.2)", color: "#fff", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 6, cursor: "pointer", fontSize: 13 },
+  content: { padding: "24px 32px" },
+  pageTitle: { fontSize: 20, fontWeight: 700, color: "#1a237e", marginBottom: 24 },
+  loading: { textAlign: "center", padding: 60, color: "#666" },
+  empty: { textAlign: "center", padding: 60, color: "#666", background: "#fff", borderRadius: 10 },
+  linkBtn: { background: "none", border: "none", color: "#0d47a1", cursor: "pointer", textDecoration: "underline" },
+  deptSection: { marginBottom: 32 },
+  deptTitle: { fontSize: 18, fontWeight: 700, color: "#1a237e", marginBottom: 12, padding: "8px 16px", background: "#e3f2fd", borderRadius: 8, display: "inline-block" },
+  yearSection: { marginBottom: 20, marginLeft: 16 },
+  yearTitle: { fontSize: 14, fontWeight: 600, color: "#666", marginBottom: 10, textTransform: "uppercase", letterSpacing: 1 },
+  classGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 },
+  classCard: { background: "#fff", borderRadius: 10, padding: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.06)", border: "1px solid #e0e0e0" },
+  classTop: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+  className: { fontSize: 16, fontWeight: 700, color: "#1a237e" },
+  roomBadge: { background: "#f3e5f5", color: "#7b1fa2", padding: "2px 8px", borderRadius: 10, fontSize: 11 },
+  classActions: { display: "flex", gap: 8 },
+  primaryBtn: { flex: 1, padding: "8px 0", background: "#1a237e", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12 },
+  secondaryBtn: { flex: 1, padding: "8px 0", background: "#fff", color: "#1a237e", border: "1px solid #1a237e", borderRadius: 6, cursor: "pointer", fontSize: 12 },
+};
