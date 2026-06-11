@@ -4,6 +4,6 @@ flask-migrate
 flask-jwt-extended
 flask-cors
 pymysql
-cryptography
-werkzeug
 paho-mqtt
+cryptography
+gunicorn
