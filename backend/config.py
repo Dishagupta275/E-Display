@@ -12,7 +12,7 @@ class Config:
     CORS_ORIGINS = [
         'http://localhost:5173',
         'http://localhost:5174',
-        ''https://e-display-1.onrender.com',
+        'https://e-display-1.onrender.com',
         'https://e-display-subscriber.onrender.com'
     ]
 class DevelopmentConfig(Config):
