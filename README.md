@@ -1,10 +1,10 @@
 # E-DISPLAY
 ### Smart Digital Classroom Information & Communication System
 
-![Python](https://img.shields.io/badge/Python-3.10+-blue?style=flat-square&logo=python)
-![Django](https://img.shields.io/badge/Django-REST_API-green?style=flat-square&logo=django)
-![React](https://img.shields.io/badge/React.js-Frontend-61DAFB?style=flat-square&logo=react)
-![Raspberry Pi](https://img.shields.io/badge/Raspberry_Pi-Kiosk-C51A4A?style=flat-square&logo=raspberrypi)
+![React](https://img.shields.io/badge/React.js-v19-61DAFB?style=flat-square&logo=react)
+![Vite](https://img.shields.io/badge/Vite-Build_Tool-646CFF?style=flat-square&logo=vite)
+![MQTT](https://img.shields.io/badge/MQTT-Pub%2FSub-660066?style=flat-square&logo=eclipsemosquitto)
+![Render](https://img.shields.io/badge/Deployed_on-Render-46E3B7?style=flat-square&logo=render)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)
 
 > Replacing paper notice boards and printed circulars with real-time digital classroom displays — one Raspberry Pi at a time.
@@ -19,13 +19,14 @@ Colleges and schools today still rely on paper circulars, printed timetables, an
 
 ---
 
-## 🖼️ Demo
+## 🔗 Live Demo
 
-> _Screenshot / demo GIF placeholder — add your UI screenshots here_
+| Role | Link |
+|---|---|
+| 📤 **Publisher** (Admin / HOD) | [e-display-1.onrender.com](https://e-display-1.onrender.com/) |
+| 📺 **Subscriber** (Classroom Display) | [e-display-subscriber.onrender.com](https://e-display-subscriber.onrender.com/) |
 
-| Admin Dashboard | Classroom Display | Faculty App |
-|---|---|---|
-| ![admin](#) | ![display](#) | ![faculty](#) |
+> _Open the subscriber link on a classroom monitor and the publisher link on the admin's device to see real-time updates in action._
 
 ---
 
@@ -43,18 +44,18 @@ Colleges and schools today still rely on paper circulars, printed timetables, an
 ## 🏗️ System Architecture
 
 ```
-Principal Dashboard
+Publisher App (Admin / HOD)
+  https://e-display-1.onrender.com
        │
+       │  MQTT publish (topic: classroom/notice)
        ▼
-  Central Server  ←──  Django REST API + WebSockets
+  MQTT Broker
        │
-  ┌────┼────┐
-  ▼    ▼    ▼
-HOD  HOD  HOD         (per department)
-  │
-  ▼
-Classroom Displays    ←── Raspberry Pi + Monitor (kiosk mode)
-Faculty Mobile App    ←── Notifications + schedule view
+       │  MQTT subscribe
+       ▼
+Subscriber App (Classroom Display)
+  https://e-display-subscriber.onrender.com
+  (runs on monitor / Raspberry Pi in each classroom)
 ```
 
 ---
@@ -75,21 +76,21 @@ Faculty Mobile App    ←── Notifications + schedule view
 
 | Layer | Technology |
 |---|---|
-| Frontend | React.js, HTML/CSS, Bootstrap |
-| Backend | Python, Django, REST API, WebSockets (Django Channels) |
-| Database | PostgreSQL (primary), MySQL |
-| Hardware | Raspberry Pi + existing LCD/LED monitor |
-| Real-time | Django Channels · WebSockets |
+| Publisher Frontend | React.js (v19), Vite |
+| Subscriber Frontend | React.js (v19), Vite |
+| Real-time Messaging | MQTT (pub/sub protocol) |
+| Build Tool | Vite + ESLint |
+| Deployment | Render (both frontend apps) |
+| Hardware (planned) | Raspberry Pi + existing LCD/LED monitor |
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Python 3.10+
 - Node.js 18+
-- PostgreSQL
-- Raspberry Pi (for classroom display units)
+- npm or yarn
+- An MQTT broker (e.g. [HiveMQ public broker](https://www.hivemq.com/public-mqtt-broker/) or self-hosted Mosquitto)
 
 ### 1. Clone the repo
 
@@ -98,45 +99,33 @@ git clone https://github.com/your-org/e-display.git
 cd e-display
 ```
 
-### 2. Backend setup
+### 2. Publisher frontend (admin panel)
 
 ```bash
-cd backend
-python -m venv venv
-source venv/bin/activate       # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env           # add your DB credentials
-python manage.py migrate
-python manage.py runserver
-```
-
-### 3. Frontend setup
-
-```bash
-cd frontend
+cd publisher-frontend
 npm install
-npm start
+npm run dev
 ```
 
-### 4. Raspberry Pi (classroom display)
+### 3. Subscriber frontend (classroom display)
 
 ```bash
-cd display-client
-pip install -r requirements.txt
-python kiosk.py --room=301 --server=http://<your-server-ip>:8000
+cd subscriber-frontend
+npm install
+npm run dev
 ```
+
+> Open the subscriber on any browser or a Raspberry Pi monitor in kiosk mode. Messages published from the publisher appear on the subscriber in real time via MQTT.
 
 ---
 
 ## ⚙️ Environment Variables
 
-Create a `.env` file in `/backend`:
+Create a `.env` file in each frontend folder as needed:
 
 ```env
-SECRET_KEY=your-django-secret-key
-DATABASE_URL=postgres://user:pass@localhost:5432/edisplay
-ALLOWED_HOSTS=localhost,your-domain.com
-CHANNEL_LAYERS_HOST=127.0.0.1
+VITE_MQTT_BROKER_URL=wss://broker.hivemq.com:8884/mqtt
+VITE_MQTT_TOPIC=edisplay/classroom
 ```
 
 ---
@@ -166,7 +155,7 @@ CHANNEL_LAYERS_HOST=127.0.0.1
 | Disha Gupta | [@Dishagupta275](https://github.com/Dishagupta275) |
 | Sravanthi Yadav | — |
 
-> Built at **Sphoorthy Engineering College**, JNTU Hyderabad · CSE Department (DS-A-III-II)
+> Built at **Sphoorthy Engineering College**, JNTU Hyderabad 
 
 ---
 
