@@ -8,3 +8,4 @@ werkzeug
 paho-mqtt
 cryptography
 gunicorn
+python-dotenv
