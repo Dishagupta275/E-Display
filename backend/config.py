@@ -22,7 +22,7 @@ class Config:
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
     
     # CORS Configuration
-    CORS_ORIGINS = ['http://localhost:5173', 'http://localhost:3000']
+    CORS_ORIGINS = ['http://localhost:5173', 'http://localhost:3000','https://e-display-subscriber.onrender.com/','https://e-display-1.onrender.com/']
 
 
 class DevelopmentConfig(Config):
