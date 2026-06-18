@@ -5,20 +5,17 @@ from datetime import datetime
 
 class MQTTPublisher:
     def __init__(self):
-        from dotenv import load_dotenv
-        import os
-
-        load_dotenv()
-
-        broker = os.getenv("MQTT_BROKER")
-        port = 8883
-        username = os.getenv("MQTT_USERNAME")
-        password = os.getenv("MQTT_PASSWORD")
+        self.broker       = "db89b31f17b343648adedb9f54f0aa40.s1.eu.hivemq.cloud"
+        self.port         = 8883
+        self.username     = "E-display"
+        self.password     = "Sphoorthy1"
+        self.client       = None
+        self.is_connected = False
 
     def connect(self):
         """Connect to MQTT broker only if not already connected"""
         if self.is_connected and self.client:
-            return  # ✅ Already connected, skip creating a new client
+            return 
         try:
             self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
             self.client.username_pw_set(self.username, self.password)

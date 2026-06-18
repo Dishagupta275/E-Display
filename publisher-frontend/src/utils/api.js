@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE_URL = 'https://e-display.onrender.com';
+const BASE_URL = 'http://localhost:5000';
 
 // Create axios instance
 const api = axios.create({
