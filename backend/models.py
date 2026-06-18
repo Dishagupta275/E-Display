@@ -267,7 +267,65 @@ class Announcement(db.Model):
             'created_at':        self.created_at.isoformat()
         }
 
+# ─────────────────────────────────────────
+# NOTICE BOARD
+# ─────────────────────────────────────────
+class NoticeBoard(db.Model):
+    __tablename__ = 'notice_boards'
 
+    id           = db.Column(db.Integer, primary_key=True)
+    name         = db.Column(db.String(200), nullable=False)
+    created_by   = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    target_type  = db.Column(db.String(20), nullable=False)  # all, department
+    target_id    = db.Column(db.Integer, nullable=True)       # dept_id if department
+    display_mode = db.Column(db.String(20), default='carousel')  # carousel, grid
+    carousel_time= db.Column(db.Integer, default=10)          # minutes per notice
+    is_active    = db.Column(db.Boolean, default=True)
+    created_at   = db.Column(db.DateTime, default=datetime.utcnow)
+
+    notices      = db.relationship('Notice', backref='board', lazy=True, cascade='all, delete-orphan')
+
+    def to_dict(self):
+        return {
+            'id':            self.id,
+            'name':          self.name,
+            'created_by':    self.created_by,
+            'target_type':   self.target_type,
+            'target_id':     self.target_id,
+            'display_mode':  self.display_mode,
+            'carousel_time': self.carousel_time,
+            'is_active':     self.is_active,
+            'notice_count':  len(self.notices),
+            'created_at':    self.created_at.isoformat()
+        }
+
+
+# ─────────────────────────────────────────
+# NOTICE
+# ─────────────────────────────────────────
+class Notice(db.Model):
+    __tablename__ = 'notices'
+
+    id           = db.Column(db.Integer, primary_key=True)
+    board_id     = db.Column(db.Integer, db.ForeignKey('notice_boards.id'), nullable=False)
+    title        = db.Column(db.String(200), nullable=False)
+    content      = db.Column(db.Text, nullable=True)
+    image_url    = db.Column(db.String(500), nullable=True)
+    order_number = db.Column(db.Integer, default=1)
+    is_active    = db.Column(db.Boolean, default=True)
+    created_at   = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id':           self.id,
+            'board_id':     self.board_id,
+            'title':        self.title,
+            'content':      self.content,
+            'image_url':    self.image_url,
+            'order_number': self.order_number,
+            'is_active':    self.is_active,
+            'created_at':   self.created_at.isoformat()
+        }
 # ─────────────────────────────────────────
 # EVENT  (display board events section)
 # ─────────────────────────────────────────

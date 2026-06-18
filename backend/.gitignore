@@ -9,3 +9,6 @@ venv/
 .vscode/
 *.sqlite
 *.db
+mqtt_publisher.py
+
+backend/__pycache__/ 

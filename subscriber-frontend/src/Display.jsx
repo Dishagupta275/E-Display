@@ -3,7 +3,7 @@ import mqtt from "mqtt";
 import TimetableView from "./TimetableView";
 import "./Display.css";
 
-const API = "https://e-display.onrender.com/api";
+const API = "http://localhost:5000/api";
 
 const MQTT_CONFIG = {
   brokerUrl: "wss://db89b31f17b343648adedb9f54f0aa40.s1.eu.hivemq.cloud:8884/mqtt",
@@ -378,7 +378,7 @@ export default function Display({ classObj, token, onExitKiosk }) {
       {/* ── SCROLLING TICKER ────────────────────────────── */}
       {ticker && (
         <div className="kiosk-ticker" style={{ "--ticker-duration": tickerDuration }}>
-          <span className="kiosk-ticker-label">📢 NOTICE</span>
+          <span className="kiosk-ticker-label"> NOTICE</span>
           <div className="kiosk-ticker-track">
             <span className="kiosk-ticker-text">{ticker.message}</span>
           </div>
@@ -430,9 +430,9 @@ export default function Display({ classObj, token, onExitKiosk }) {
 
       {/* ── FOOTER ──────────────────────────────────────── */}
       <div className="kiosk-footer">
-        <span>ACADEMIC YEAR 2024–2025</span>
+        <span>ACADEMIC YEAR 2025–2026</span>
         <span>SPHOORTHY ENGINEERING COLLEGE</span>
-        <span className="kiosk-exit-hint">Press F9 to exit kiosk</span>
+        <span className="kiosk-exit-hint">Press F9 to exit</span>
       </div>
 
       {/* ── POPUP NOTIFICATION OVERLAY ──────────────────── */}
@@ -457,7 +457,7 @@ export default function Display({ classObj, token, onExitKiosk }) {
 
             {notification.image_url && (
               <img
-                src={`https://e-display.onrender.com${notification.image_url}`}
+                src={`http://localhost:5000${notification.image_url}`}
                 alt="notification"
                 className="notif-image"
               />

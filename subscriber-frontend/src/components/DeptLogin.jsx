@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import "./DeptLogin.css";
 
-const API = "https://e-display.onrender.com/api";
+const API = "http://localhost:5000/api";
 
 export default function DeptLogin({ onLoginSuccess }) {
   const [departments, setDepartments] = useState([]);

@@ -8,7 +8,7 @@ from models import db, Department, User, PeriodTiming
 from routes import register_blueprints
 from mqtt_publisher import mqtt_publisher
 from datetime import datetime, time
-
+from flask import Flask, send_from_directory
 
 def create_app(config_name='development'):
     """Application factory"""
@@ -21,7 +21,7 @@ def create_app(config_name='development'):
     db.init_app(app)
     JWTManager(app)
     migrate = Migrate(app, db)
-    CORS(app, resources={r"/api/*": {"origins": app.config['CORS_ORIGINS']}})
+    CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173", "http://localhost:5174"]}})
     
     # Register blueprints
     register_blueprints(app)
@@ -32,8 +32,9 @@ def create_app(config_name='development'):
     # Serve uploaded files
     @app.route('/uploads/<filename>')
     def serve_upload(filename):
-        return app.send_from_directory(app.config['UPLOAD_FOLDER'], filename)
-    
+        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+   
+   
     # Health check endpoint
     @app.route('/', methods=['GET'])
     def health_check():

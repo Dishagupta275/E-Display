@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { departmentsAPI, usersAPI } from "../utils/api";
-
+import Layout from "../components/Layout";
 export default function Departments() {
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading]         = useState(true);
@@ -101,9 +101,16 @@ export default function Departments() {
   };
 
   return (
+  <Layout pageTitle="🏢 Departments">
     <div style={s.page}>
-
-      <h2 style={s.pageTitle}>🏢 Departments</h2>
+      <div style={s.topBar}>
+  <div>
+    <h2 style={s.pageTitle}>🏢 Department Management</h2>
+    <p style={s.pageSub}>
+      Create and manage departments, HODs and Assistant HODs
+    </p>
+  </div>
+</div>
 
       {/* Create Department Card */}
       <div style={s.card}>
@@ -237,10 +244,10 @@ export default function Departments() {
         </div>
       )}
 
-    </div>
+        </div>
+  </Layout>
   );
 }
-
 const s = {
   page: {
     minHeight: "100vh",

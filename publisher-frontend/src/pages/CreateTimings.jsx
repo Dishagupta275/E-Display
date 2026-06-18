@@ -13,7 +13,7 @@ export default function CreateTimings() {
       return;
     }
 
-    await fetch(`https://e-display.onrender.com/api/timings/${classname}`, {
+    await fetch(`http://localhost:5000/api/timings/${classname}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -27,7 +27,7 @@ export default function CreateTimings() {
 
   return (
     <div style={{ maxWidth: 500 }}>
-      <h2>⏰ Timings for {classname}</h2>
+      <h2> Timings for {classname}</h2>
 
       <h4>Break</h4>
       <input type="time" onChange={e => setBreakTime({ ...breakTime, start: e.target.value })} />
