@@ -2,7 +2,7 @@ import { useState } from "react";
 import Display from "./Display";
 import "./App.css";
 
-const API = "https://e-display.onrender.com/api";
+const API = "https://e-display.onrender.com";
 
 // ─── Login Screen ───────────────────────────────
 function LoginScreen({ onLoginSuccess }) {
