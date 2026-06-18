@@ -44,15 +44,14 @@ export default function Display({ classObj, token, onExitKiosk }) {
   const [notification, setNotification]   = useState(null);
   const [inchargeName, setInchargeName]   = useState("Not Assigned");
   const [notifTimeLeft, setNotifTimeLeft] = useState(null);
-
-  // ── NEW: Ticker + Events ─────────────────────────────
-  const [ticker, setTicker]   = useState(null);   // { message, duration_minutes }
-  const [events, setEvents]   = useState([]);      // [{ title, date, description, event_type }]
+  const [ticker, setTicker]               = useState(null);
+  const [events, setEvents]               = useState([]);
 
   const notifTimerRef   = useRef(null);
   const notifCounterRef = useRef(null);
   const tickerTimerRef  = useRef(null);
   const mqttClientRef   = useRef(null);
+  const shownNotifIds   = useRef(new Set()); // ← track shown notifications
 
   // ── Clock ────────────────────────────────────────────
   useEffect(() => {
@@ -80,19 +79,16 @@ export default function Display({ classObj, token, onExitKiosk }) {
     if (!classObj?.id) return;
     const cacheKey = `timetable_${classObj.id}`;
 
-    // Load timetable cache for offline support
     try {
       const cached = localStorage.getItem(cacheKey);
       if (cached) setTimetable(JSON.parse(cached));
     } catch (_) {}
 
-    // Load cached events
     try {
       const cachedEvents = localStorage.getItem("events_cache");
       if (cachedEvents) setEvents(JSON.parse(cachedEvents));
     } catch (_) {}
 
-    // Fetch period timings
     fetch(`${API}/period-timings`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -100,7 +96,6 @@ export default function Display({ classObj, token, onExitKiosk }) {
       .then((data) => setTimings(Array.isArray(data) ? data : []))
       .catch(() => {});
 
-    // Fetch timetable
     fetch(`${API}/timetable/${classObj.id}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -114,7 +109,6 @@ export default function Display({ classObj, token, onExitKiosk }) {
       })
       .catch(() => console.warn("Using cached timetable"));
 
-    // Fetch class info for incharge name
     fetch(`${API}/classes/${classObj.id}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -124,7 +118,6 @@ export default function Display({ classObj, token, onExitKiosk }) {
       })
       .catch(() => {});
 
-    // Fetch upcoming events
     fetch(`${API}/events`, {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -190,20 +183,13 @@ export default function Display({ classObj, token, onExitKiosk }) {
     mqttClientRef.current = client;
 
     const subscribe = () => {
-      // Timetable
       client.subscribe(`edisplay/timetable/${classObj.display_name}`);
-
-      // Popup notifications
       client.subscribe(`edisplay/notification/${classObj.display_name}`);
       client.subscribe(`edisplay/notification/dept_${classObj.department_id}`);
       client.subscribe(`edisplay/notification/all`);
-
-      // Scrolling ticker
       client.subscribe(`edisplay/ticker/${classObj.display_name}`);
       client.subscribe(`edisplay/ticker/dept_${classObj.department_id}`);
       client.subscribe(`edisplay/ticker/all`);
-
-      // Events section
       client.subscribe(`edisplay/events/${classObj.display_name}`);
       client.subscribe(`edisplay/events/dept_${classObj.department_id}`);
       client.subscribe(`edisplay/events/all`);
@@ -220,22 +206,19 @@ export default function Display({ classObj, token, onExitKiosk }) {
         const payload = JSON.parse(message.toString());
 
         if (topic.includes("/ticker/")) {
-          // Scrolling ticker bar
           const t = payload.ticker || payload;
           showTicker(t);
-
         } else if (topic.includes("/events/")) {
-          // Events section update
           const evList = payload.events || [];
           setEvents(evList);
           localStorage.setItem("events_cache", JSON.stringify(evList));
-
         } else if (topic.includes("/notification/")) {
-          // Popup notification
-          showNotification(payload.notification || payload);
-
+          const notif = payload.notification || payload;
+          if (notif?.id && !shownNotifIds.current.has(notif.id)) {
+            shownNotifIds.current.add(notif.id);
+            showNotification(notif);
+          }
         } else if (topic.includes("/timetable/")) {
-          // Timetable update
           const newTT = payload.timetable || payload;
           if (newTT && typeof newTT === "object") {
             setTimetable(newTT);
@@ -260,13 +243,40 @@ export default function Display({ classObj, token, onExitKiosk }) {
     };
   }, [classObj]);
 
+  // ── Notification polling fallback when MQTT offline ──
+  useEffect(() => {
+    if (!classObj?.id) return;
+
+    const pollNotifications = async () => {
+      try {
+        const res = await fetch(`${API}/notifications/active/${classObj.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const latest = data[data.length - 1];
+          // Only show if not already shown
+          if (latest?.id && !shownNotifIds.current.has(latest.id)) {
+            shownNotifIds.current.add(latest.id);
+            showNotification(latest);
+          }
+        }
+      } catch (e) {
+        console.warn("Polling failed", e);
+      }
+    };
+
+    pollNotifications();
+    const interval = setInterval(pollNotifications, 10000);
+    return () => clearInterval(interval);
+  }, [classObj?.id, token]);
+
   if (!classObj) return (
     <div style={{ color: "white", padding: "2rem", background: "#0d2b6b", height: "100vh" }}>
       Loading...
     </div>
   );
 
-  // ── Derived values ────────────────────────────────────
   const currentDay     = now.toLocaleDateString("en-IN", { weekday: "long" });
   const currentIdx     = getCurrentPeriodIdx(now, timings);
   const todaySlots     = timetable[currentDay] || [];
@@ -306,16 +316,10 @@ export default function Display({ classObj, token, onExitKiosk }) {
             DEPT. OF {classObj.department_name || "ENGINEERING"}
           </span>
         </div>
-
         <div className="kiosk-header-center">
-          <div className="kiosk-college-name">
-            SPHOORTHY ENGINEERING COLLEGE
-          </div>
-          <div className="kiosk-college-sub">
-            Autonomous Institution &nbsp;|&nbsp; NAAC Accredited
-          </div>
+          <div className="kiosk-college-name">SPHOORTHY ENGINEERING COLLEGE</div>
+          <div className="kiosk-college-sub">Autonomous Institution &nbsp;|&nbsp; NAAC Accredited</div>
         </div>
-
         <div className="kiosk-header-right">
           <div className="kiosk-class-badge">{classObj.display_name}</div>
           <div className="kiosk-room-badge">ROOM {classObj.room_number || "N/A"}</div>
@@ -330,19 +334,10 @@ export default function Display({ classObj, token, onExitKiosk }) {
         </div>
         <div className="kiosk-clock-bar">
           <span className="kiosk-time">
-            {now.toLocaleTimeString("en-IN", {
-              hour:   "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-            })}
+            {now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
           </span>
           <span className="kiosk-date">
-            {now.toLocaleDateString("en-IN", {
-              weekday: "long",
-              day:     "2-digit",
-              month:   "long",
-              year:    "numeric",
-            })}
+            {now.toLocaleDateString("en-IN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
           </span>
         </div>
         <div className={`kiosk-conn ${connected ? "online" : "offline"}`}>
@@ -378,7 +373,7 @@ export default function Display({ classObj, token, onExitKiosk }) {
       {/* ── SCROLLING TICKER ────────────────────────────── */}
       {ticker && (
         <div className="kiosk-ticker" style={{ "--ticker-duration": tickerDuration }}>
-          <span className="kiosk-ticker-label"> NOTICE</span>
+          <span className="kiosk-ticker-label">NOTICE</span>
           <div className="kiosk-ticker-track">
             <span className="kiosk-ticker-text">{ticker.message}</span>
           </div>
@@ -407,9 +402,7 @@ export default function Display({ classObj, token, onExitKiosk }) {
             {events.map((ev, i) => (
               <div className="kiosk-event-card" key={i}>
                 <div className="kiosk-event-top">
-                  <span className="kiosk-event-icon">
-                    {eventTypeIcon(ev.announcement_type)}
-                  </span>
+                  <span className="kiosk-event-icon">{eventTypeIcon(ev.announcement_type)}</span>
                   <span className="kiosk-event-date">
                     {ev.event_date
                       ? new Date(ev.event_date).toLocaleDateString("en-IN", {
@@ -419,9 +412,7 @@ export default function Display({ classObj, token, onExitKiosk }) {
                   </span>
                 </div>
                 <div className="kiosk-event-title">{ev.title}</div>
-                {ev.content && (
-                  <div className="kiosk-event-desc">{ev.content}</div>
-                )}
+                {ev.content && <div className="kiosk-event-desc">{ev.content}</div>}
               </div>
             ))}
           </div>
@@ -439,7 +430,6 @@ export default function Display({ classObj, token, onExitKiosk }) {
       {notification && (
         <div className="notif-backdrop" onClick={dismissNotification}>
           <div className="notif-box" onClick={(e) => e.stopPropagation()}>
-
             <div className="notif-top-bar">
               <div className="notif-badge">📢 ANNOUNCEMENT</div>
               {notifTimeLeft && (
@@ -448,13 +438,10 @@ export default function Display({ classObj, token, onExitKiosk }) {
                 </div>
               )}
             </div>
-
             <div className="notif-title">{notification.title || "Notice"}</div>
-
             {notification.message && (
               <div className="notif-message">{notification.message}</div>
             )}
-
             {notification.image_url && (
               <img
                 src={`http://localhost:5000${notification.image_url}`}
@@ -462,11 +449,9 @@ export default function Display({ classObj, token, onExitKiosk }) {
                 className="notif-image"
               />
             )}
-
             <button className="notif-dismiss-btn" onClick={dismissNotification}>
               ✕ Dismiss
             </button>
-
           </div>
         </div>
       )}
