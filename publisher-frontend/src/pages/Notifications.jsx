@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { classesAPI, notificationsAPI, departmentsAPI } from "../utils/api";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import Layout from "../components/Layout";
+
 export default function Notifications() {
   const nav = useNavigate();
   const { currentUser, logout } = useAuth();
@@ -129,19 +129,22 @@ export default function Notifications() {
   };
 
   return (
-  <Layout pageTitle="📢 Notifications">
     <div style={s.container}>
-    
+
+      {/* Header */}
+      <div style={s.header}>
+        <div>
+          <h1 style={s.title}>E-DISPLAY</h1>
+          <p style={s.subtitle}>Notification Management</p>
+        </div>
+        <div style={s.headerRight}>
+          <button onClick={() => nav("/dashboard")} style={s.backBtn}>← Dashboard</button>
+          <button onClick={logout} style={s.logoutBtn}>Logout</button>
+        </div>
+      </div>
 
       <div style={s.content}>
-        <div style={s.topBar}>
-  <div>
-    <h2 style={s.pageTitle}>📢 Notification Management</h2>
-    <p style={s.pageSub}>
-      Create and manage notifications across departments and classes
-    </p>
-  </div>
-</div>
+        <h2 style={s.pageTitle}>📢 Send Notification</h2>
 
         {/* Save message */}
         {saveMsg && (
@@ -353,13 +356,18 @@ export default function Notifications() {
         </div>
 
       </div>
-        </div>
-  </Layout>
+    </div>
   );
 }
 
 const s = {
   container:   { minHeight: "100vh", background: "#f0f4f8", fontFamily: "sans-serif" },
+  header:      { background: "linear-gradient(135deg, #1a237e, #0d47a1)", color: "#fff", padding: "20px 32px", display: "flex", justifyContent: "space-between", alignItems: "center" },
+  title:       { margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: 2 },
+  subtitle:    { margin: "4px 0 0", fontSize: 13, opacity: 0.8 },
+  headerRight: { display: "flex", gap: 8 },
+  backBtn:     { padding: "8px 16px", background: "rgba(255,255,255,0.2)", color: "#fff", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 6, cursor: "pointer", fontSize: 13 },
+  logoutBtn:   { padding: "8px 16px", background: "rgba(255,255,255,0.2)", color: "#fff", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 6, cursor: "pointer", fontSize: 13 },
   content:     { padding: "24px 32px", maxWidth: 760, margin: "0 auto" },
   pageTitle:   { fontSize: 20, fontWeight: 700, color: "#1a237e", marginBottom: 20 },
   msgBanner:   { borderRadius: 8, padding: "12px 16px", marginBottom: 16, fontSize: 14, fontWeight: 500 },
