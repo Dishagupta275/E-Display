@@ -1,0 +1,358 @@
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc4MDgzMDI1MywianRpIjoiZGY1ODc3NTMtYjYyMi00NzdmLWFlNmMtNGZmNjcxNmNiMjBiIiwidHlwZSI6ImFjY2VzcyIsInN1YiI6IjEiLCJuYmYiOjE3ODA4MzAyNTMsImV4cCI6MTc4MTQzNTA1M30.1-pJ2Y2Q4izWamGMw5XFg334z2iooCnki3yEvQ56MMw
+
+###
+# AUTH: Login with correct principal credentials (should return JWT token)
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "principal@edisplay.com",
+  "password": "Principal@123"
+}
+
+# Expected: 200 OK
+# {
+#   "access_token": "<JWT>",
+#   "user": { ... }
+# }
+
+###
+# AUTH: Login with wrong password (should return 401)
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "principal@edisplay.com",
+  "password": "wrongpassword"
+}
+
+# Expected: 401 Unauthorized
+
+###
+# AUTH: Register HOD for CSE department
+POST http://localhost:5000/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "HOD CSE",
+  "email": "hod.cse@edisplay.com",
+  "password": "HodCse@123",
+  "role": "hod",
+  "department_id": 1
+}
+### Register HOD ECE
+POST http://localhost:5000/api/auth/register
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": "HOD ECE",
+  "email": "hod.ece@edisplay.com",
+  "password": "HodEce@123",
+  "role": "hod",
+  "department_id": 2
+}
+
+### Register HOD MECH
+POST http://localhost:5000/api/auth/register
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": "HOD MECH",
+  "email": "hod.mech@edisplay.com",
+  "password": "HodMech@123",
+  "role": "hod",
+  "department_id": 3
+}
+
+### Register HOD DS
+POST http://localhost:5000/api/auth/register
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": "HOD DS",
+  "email": "hod.ds@edisplay.com",
+  "password": "HodDs@123",
+  "role": "hod",
+  "department_id": 4
+}
+
+### Register Faculty
+POST http://localhost:5000/api/auth/register
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": "Faculty A",
+  "email": "faculty.a@edisplay.com",
+  "password": "Faculty@123",
+  "role": "faculty",
+  "department_id": 1
+}
+# Expected: 201 Created
+
+###
+# AUTH: Register a faculty member
+POST http://localhost:5000/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Faculty A",
+  "email": "faculty.a@edisplay.com",
+  "password": "Faculty@123",
+  "role": "faculty",
+  "department_id": 1
+}
+
+# Expected: 201 Created
+
+###
+# AUTH: Get current logged in user (needs Bearer token)
+GET http://localhost:5000/api/auth/me
+Authorization: Bearer {{token}}
+
+# Expected: 200 OK, user object
+
+###
+# AUTH: Get all users (principal only)
+GET http://localhost:5000/api/auth/users
+Authorization: Bearer {{token}}
+
+# Expected: 200 OK, list of users
+
+###
+# DEPARTMENTS: Get all departments
+GET http://localhost:5000/api/departments
+Authorization: Bearer {{token}}
+
+# Expected: 200 OK, list of departments
+HTTP/1.1 404 NOT FOUND
+Server: Werkzeug/2.3.7 Python/3.12.5
+Date: Sun, 07 Jun 2026 07:29:32 GMT
+Content-Type: application/json
+Content-Length: 33
+Access-Control-Allow-Origin: http://localhost:5173
+Vary: Origin
+Connection: close
+
+{
+  "message": "Resource not found"
+}
+
+###
+# DEPARTMENTS: Create new department called IT (principal only)
+POST http://localhost:5000/api/departments
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": "IT"
+}
+
+# Expected: 201 Created
+
+###
+# CLASSES: Get all classes grouped by department and year
+GET http://localhost:5000/api/classes
+Authorization: Bearer {{token}}
+
+# Expected: 200 OK
+
+###
+# CLASSES: Create CSE Year 2 Section A
+POST http://localhost:5000/api/classes
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "department_id": 1,
+  "year": 2,
+  "section": "A",
+  "room_number": "B201"
+}
+
+# Expected: 201 Created
+
+###
+# CLASSES: Update class room number (example uses id=1)
+PUT http://localhost:5000/api/classes/1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "room_number": "B202"
+}
+
+# Expected: 200 OK
+
+###
+# CLASSES: Delete class id=1
+DELETE http://localhost:5000/api/classes/1
+Authorization: Bearer {{token}}
+
+# Expected: 200 OK / 204 No Content
+
+###
+# TIMETABLE: Get full weekly timetable for class id 1
+GET http://localhost:5000/api/timetable/1
+Authorization: Bearer {{token}}
+### Get timetable for class 2
+GET http://localhost:5000/api/timetable/2
+Authorization: Bearer {{token}}
+# Expected: 200 OK
+
+###
+# TIMETABLE: Save timetable slots for Monday for class id 1
+POST http://localhost:5000/api/timetable/1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "day": "Monday",
+  "slots": [
+    { "period_number": 1, "slot_type": "lecture", "subject_id": 1, "faculty_id": 2 }
+  ]
+}
+
+# Expected: 200 OK / 201 Created
+
+###
+# TIMETABLE: Get currently running period for class id 1
+GET http://localhost:5000/api/timetable/1/current-period
+Authorization: Bearer {{token}}
+
+# Expected: 200 OK
+
+###
+# TIMETABLE: Publish timetable to MQTT for class id 1
+POST http://localhost:5000/api/timetable/1/publish
+Authorization: Bearer {{token}}
+
+# Expected: 200 OK
+
+###
+# PERIOD TIMINGS: Get all period timings
+GET http://localhost:5000/api/period-timings
+Authorization: Bearer {{token}}
+
+# Expected: 200 OK
+
+###
+# NOTIFICATIONS: Send text notification to all classrooms
+POST http://localhost:5000/api/notifications
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "target_type": "all",
+  "message": "Test notification to all classrooms",
+  "priority": "normal"
+}
+
+# Expected: 201 Created
+
+###
+# NOTIFICATIONS: Send notification to single class
+POST http://localhost:5000/api/notifications
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "target_type": "class",
+  "target_id": 1,
+  "message": "Test notification to class 1"
+}
+
+# Expected: 201 Created
+
+###
+# NOTIFICATIONS: Send notification to entire department
+POST http://localhost:5000/api/notifications
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "target_type": "department",
+  "target_id": 1,
+  "message": "Test notification to department 1"
+}
+
+# Expected: 201 Created
+
+###
+# NOTIFICATIONS: Get active notifications for class id 1
+GET http://localhost:5000/api/notifications/active/1
+Authorization: Bearer {{token}}
+
+# Expected: 200 OK
+
+###
+# NOTIFICATIONS: Deactivate notification id=1
+DELETE http://localhost:5000/api/notifications/1
+Authorization: Bearer {{token}}
+
+# Expected: 200 OK
+
+###
+# ANNOUNCEMENTS: Post exam announcement
+POST http://localhost:5000/api/announcements
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "title": "Exam Schedule",
+  "message": "Semester exams start next week",
+  "department_id": 1
+}
+
+# Expected: 201 Created
+
+###
+# ANNOUNCEMENTS: Post competition announcement
+POST http://localhost:5000/api/announcements
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "title": "Coding Competition",
+  "message": "Inter-college coding contest on Friday",
+  "department_id": null
+}
+
+# Expected: 201 Created
+
+###
+# ANNOUNCEMENTS: Get all announcements
+GET http://localhost:5000/api/announcements
+Authorization: Bearer {{token}}
+
+# Expected: 200 OK
+
+###
+# ANNOUNCEMENTS: Get announcements for department id=1
+GET http://localhost:5000/api/announcements/1
+Authorization: Bearer {{token}}
+
+# Expected: 200 OK
+
+###
+# DEVICE: Send heartbeat from Raspberry Pi
+POST http://localhost:5000/api/device/heartbeat
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "class_id": 1,
+  "ip_address": "192.168.1.100"
+}
+
+# Expected: 200 OK
+
+###
+# DEVICE: Get all device online/offline status
+GET http://localhost:5000/api/devices/status
+Authorization: Bearer {{token}}
+
+# Expected: 200 OK
