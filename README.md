@@ -154,6 +154,7 @@ VITE_MQTT_TOPIC=edisplay/classroom
 |---|---|
 | Disha Gupta | [@Dishagupta275](https://github.com/Dishagupta275) |
 | Sravanthi Yadav | [@Sravanthiyadav25](https://github.com/Sravanthiyadav25) |
+| G Abhilash      |
 
 > Built at **Sphoorthy Engineering College**, JNTU Hyderabad 
 
