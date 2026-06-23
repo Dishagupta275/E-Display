@@ -57,7 +57,7 @@ export default function Dashboard() {
         }
 
         setStats({
-          departments: deptsRes.data.length,
+          departments: (deptsRes.data || []).length,
           classes:     isPrincipal ? totalClasses : hodClasses,
           devices:     onlineDevices,
         });

@@ -193,11 +193,14 @@ def get_current_period(class_id):
         if not class_obj:
             return jsonify({'message': 'Class not found'}), 404
         
-        # Get current time
-        current_time = datetime.utcnow().time()
-        
-        # Get today (0-6 where 0 is Monday)
-        today_index = datetime.utcnow().weekday()
+        # Get current time in IST (UTC+5:30)
+        from datetime import timezone, timedelta
+        IST = timezone(timedelta(hours=5, minutes=30))
+        now_ist = datetime.now(IST)
+        current_time = now_ist.time()
+
+        # Get today in IST (0-6 where 0 is Monday)
+        today_index = now_ist.weekday()
         days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
         today = days[today_index] if today_index < 6 else 'Saturday'
         

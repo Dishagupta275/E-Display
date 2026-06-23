@@ -1,6 +1,6 @@
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from models import db, User, Announcement, Department
+from models import db, User, Announcement, Department, Event
 from datetime import datetime
 import os
 from werkzeug.utils import secure_filename
@@ -171,7 +171,8 @@ def delete_announcement(announcement_id):
             return jsonify({'message': 'Announcement not found'}), 404
         
         # Check authorization
-        if user.role == 'hod' and announcement.posted_by_user.department_id != user.department_id:
+        poster = User.query.get(announcement.posted_by)
+        if user.role == 'hod' and (not poster or poster.department_id != user.department_id):
             return jsonify({'message': 'Can only delete own announcements'}), 403
         
         announcement.is_active = False
@@ -181,4 +182,14 @@ def delete_announcement(announcement_id):
     
     except Exception as e:
         db.session.rollback()
+        return jsonify({'message': f'Error: {str(e)}'}), 500
+
+
+@announcements_bp.route('/events', methods=['GET'])
+def get_events():
+    """Get active upcoming events for the display screen (no auth required)."""
+    try:
+        events = Event.query.filter_by(is_active=True).order_by(Event.event_date.asc()).all()
+        return jsonify([e.to_dict() for e in events]), 200
+    except Exception as e:
         return jsonify({'message': f'Error: {str(e)}'}), 500

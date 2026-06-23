@@ -10,10 +10,12 @@ class MQTTPublisher:
 
         load_dotenv()
 
-        broker = os.getenv("MQTT_BROKER")
-        port = 8883
-        username = os.getenv("MQTT_USERNAME")
-        password = os.getenv("MQTT_PASSWORD")
+        self.broker = os.getenv("MQTT_BROKER")
+        self.port = 8883
+        self.username = os.getenv("MQTT_USERNAME")
+        self.password = os.getenv("MQTT_PASSWORD")
+        self.client = None
+        self.is_connected = False
 
     def connect(self):
         """Connect to MQTT broker only if not already connected"""
@@ -34,6 +36,12 @@ class MQTTPublisher:
             self.client.connect(self.broker, self.port, keepalive=60)
             self.client.loop_start()
             print(f"MQTT Client connecting to {self.broker}:{self.port}")
+            # Wait up to 5 seconds for connection to establish
+            import time
+            for _ in range(50):
+                if self.is_connected:
+                    break
+                time.sleep(0.1)
         except Exception as e:
             print(f"MQTT Connection Error: {str(e)}")
             self.is_connected = False
@@ -57,8 +65,11 @@ class MQTTPublisher:
         """Publish timetable to MQTT broker"""
         if not self.is_connected:
             print("MQTT: Not connected, attempting to reconnect...")
-            self.is_connected = False
             self.connect()
+
+        if not self.client:
+            print("MQTT: No client available, cannot publish")
+            return False
 
         try:
             topic   = f"edisplay/timetable/{class_display_name}"
@@ -84,8 +95,11 @@ class MQTTPublisher:
         """Publish notification to MQTT broker"""
         if not self.is_connected:
             print("MQTT: Not connected, attempting to reconnect...")
-            self.is_connected = False
             self.connect()
+
+        if not self.client:
+            print("MQTT: No client available, cannot publish")
+            return False
 
         try:
             topic   = f"edisplay/notification/{target}"

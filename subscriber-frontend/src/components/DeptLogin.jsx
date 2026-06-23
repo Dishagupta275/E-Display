@@ -56,7 +56,7 @@ export default function DeptLogin({ onLoginSuccess }) {
 
     try {
       // Step 1: Login
-      const loginRes = await fetch(`${API}/login`, {
+      const loginRes = await fetch(`${API}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
