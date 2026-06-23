@@ -15,11 +15,11 @@ import Departments from './pages/Departments';
 import DeviceMonitor from './pages/DeviceMonitor';
 import DeviceManager from './pages/DeviceManager';
 import Users from './pages/Users';
+import Notices from './pages/Notices'; // ✅ make sure this file exists & default export
 
 // ────────────────────────────────────────
 // PROTECTED ROUTE WRAPPER
-// ─────────────────────────────────────────
-
+// ────────────────────────────────────────
 const ProtectedRoute = ({ children, roles }) => {
   const { isAuthenticated, currentUser } = useAuth();
 
@@ -37,33 +37,35 @@ const ProtectedRoute = ({ children, roles }) => {
 // ─────────────────────────────────────────
 // ROUTES
 // ─────────────────────────────────────────
-
 const AppRoutes = () => {
   const { isAuthenticated } = useAuth();
 
   return (
     <Routes>
 
-      {/* ── PUBLIC ───────────────────────────── */}
+      {/* PUBLIC */}
       <Route
         path="/login"
         element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />}
       />
+
+      {/* NOTICES */}
       <Route
-  path="/notices"
-  element={
-    <ProtectedRoute roles={['principal', 'hod', 'asst_hod']}>
-      <Notices />
-    </ProtectedRoute>
-  }
-/>
-      {/* ── DEFAULT REDIRECT ─────────────────── */}
+        path="/notices"
+        element={
+          <ProtectedRoute roles={['principal', 'hod', 'asst_hod']}>
+            <Notices />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* DEFAULT */}
       <Route
         path="/"
         element={<Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />}
       />
 
-      {/* ── DASHBOARD (all roles) ────────────── */}
+      {/* DASHBOARD */}
       <Route
         path="/dashboard"
         element={
@@ -73,7 +75,7 @@ const AppRoutes = () => {
         }
       />
 
-      {/* ── TIMETABLE (all roles) ────────────── */}
+      {/* TIMETABLE */}
       <Route
         path="/timetable"
         element={
@@ -99,7 +101,7 @@ const AppRoutes = () => {
         }
       />
 
-      {/* ── CLASS SETUP (all roles can view) ─── */}
+      {/* CLASS SETUP */}
       <Route
         path="/class-setup/:classId"
         element={
@@ -109,7 +111,7 @@ const AppRoutes = () => {
         }
       />
 
-      {/* ── CLASSES (hod, asst_hod only) ─────── */}
+      {/* CLASSES */}
       <Route
         path="/classes"
         element={
@@ -119,7 +121,7 @@ const AppRoutes = () => {
         }
       />
 
-      {/* ── SUBJECTS (hod, asst_hod only) ────── */}
+      {/* SUBJECTS */}
       <Route
         path="/subjects"
         element={
@@ -129,7 +131,7 @@ const AppRoutes = () => {
         }
       />
 
-      {/* ── NOTIFICATIONS (principal, hod, asst_hod) */}
+      {/* NOTIFICATIONS */}
       <Route
         path="/notifications"
         element={
@@ -139,7 +141,7 @@ const AppRoutes = () => {
         }
       />
 
-      {/* ── PERIOD TIMINGS (principal only) ──── */}
+      {/* TIMINGS */}
       <Route
         path="/timings"
         element={
@@ -149,7 +151,7 @@ const AppRoutes = () => {
         }
       />
 
-      {/* ── DEPARTMENTS (principal only) ─────── */}
+      {/* DEPARTMENTS */}
       <Route
         path="/departments"
         element={
@@ -159,7 +161,7 @@ const AppRoutes = () => {
         }
       />
 
-      {/* ── DEVICE MONITOR (principal, hod) ──── */}
+      {/* DEVICE MONITOR */}
       <Route
         path="/device-monitor"
         element={
@@ -169,7 +171,7 @@ const AppRoutes = () => {
         }
       />
 
-      {/* ── DEVICE MANAGER (principal only) ─── */}
+      {/* DEVICE MANAGER */}
       <Route
         path="/devices"
         element={
@@ -179,7 +181,7 @@ const AppRoutes = () => {
         }
       />
 
-      {/* ── USER MANAGEMENT (principal only) ─── */}
+      {/* USERS */}
       <Route
         path="/users"
         element={
@@ -189,7 +191,7 @@ const AppRoutes = () => {
         }
       />
 
-      {/* ── CATCH ALL ────────────────────────── */}
+      {/* FALLBACK */}
       <Route path="*" element={<Navigate to="/" replace />} />
 
     </Routes>
@@ -199,7 +201,6 @@ const AppRoutes = () => {
 // ─────────────────────────────────────────
 // APP
 // ─────────────────────────────────────────
-
 const App = () => {
   return (
     <BrowserRouter>
