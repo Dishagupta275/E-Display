@@ -21,8 +21,10 @@ export default function DeviceManager() {
         api.get("/api/devices"),
         api.get("/api/classes"),
       ]);
-      setDevices(devRes.data);
-      setClasses(clsRes.data);
+      const devData = devRes.data;
+      const clsData = clsRes.data;
+      setDevices(Array.isArray(devData) ? devData : devData?.devices ?? devData?.data ?? []);
+      setClasses(Array.isArray(clsData) ? clsData : clsData?.classes ?? clsData?.data ?? []);
     } catch (e) {
       setError("Failed to load data");
     } finally {
