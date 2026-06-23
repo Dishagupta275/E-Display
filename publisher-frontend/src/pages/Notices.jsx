@@ -72,10 +72,16 @@ export default function Notices() {
       fetch(`${API_BASE}/api/classes`).then((r) => r.json()),
     ])
       .then(([noticeData, classData]) => {
-        const classList = Array.isArray(classData)
-          ? classData.map((c) => (typeof c === "string" ? c : c.name))
-          : [];
-        setClasses(classList);
+        // /api/classes returns { "CSE": { "1": [...], "2": [...] }, ... }
+        const flat = [];
+        if (classData && typeof classData === "object" && !Array.isArray(classData)) {
+          Object.values(classData).forEach(dept => {
+            Object.values(dept).forEach(yearArr => {
+              if (Array.isArray(yearArr)) yearArr.forEach(c => flat.push(c.display_name || c.name || c));
+            });
+          });
+        }
+        setClasses(flat);
         if (Array.isArray(noticeData) && noticeData.length > 0) {
           if (typeof noticeData[0] === "string") {
             setNotices(noticeData.map((t) => ({ text: t, target: "all" })));

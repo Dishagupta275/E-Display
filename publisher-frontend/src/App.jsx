@@ -49,7 +49,14 @@ const AppRoutes = () => {
         path="/login"
         element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />}
       />
-
+      <Route
+  path="/notices"
+  element={
+    <ProtectedRoute roles={['principal', 'hod', 'asst_hod']}>
+      <Notices />
+    </ProtectedRoute>
+  }
+/>
       {/* ── DEFAULT REDIRECT ─────────────────── */}
       <Route
         path="/"
