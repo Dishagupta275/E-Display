@@ -22,9 +22,18 @@ export default function DeviceManager() {
         api.get("/api/classes"),
       ]);
       const devData = devRes.data;
-      const clsData = clsRes.data;
       setDevices(Array.isArray(devData) ? devData : devData?.devices ?? devData?.data ?? []);
-      setClasses(Array.isArray(clsData) ? clsData : clsData?.classes ?? clsData?.data ?? []);
+
+      // /api/classes returns { "CSE": { "1": [...], "2": [...] }, ... }
+      // Flatten into a single array of class objects
+      const clsData = clsRes.data || {};
+      const flat = [];
+      Object.values(clsData).forEach(dept => {
+        Object.values(dept).forEach(yearArr => {
+          if (Array.isArray(yearArr)) yearArr.forEach(c => flat.push(c));
+        });
+      });
+      setClasses(flat);
     } catch (e) {
       setError("Failed to load data");
     } finally {
