@@ -13,6 +13,7 @@ import WeekUpdate from './pages/WeekUpdate';
 import DayUpdate from './pages/DayUpdate';
 import Departments from './pages/Departments';
 import DeviceMonitor from './pages/DeviceMonitor';
+import DeviceManager from './pages/DeviceManager';
 import Users from './pages/Users';
 
 // ────────────────────────────────────────
@@ -153,10 +154,20 @@ const AppRoutes = () => {
 
       {/* ── DEVICE MONITOR (principal, hod) ──── */}
       <Route
-        path="/devices"
+        path="/device-monitor"
         element={
           <ProtectedRoute roles={['principal', 'hod']}>
             <DeviceMonitor />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* ── DEVICE MANAGER (principal only) ─── */}
+      <Route
+        path="/devices"
+        element={
+          <ProtectedRoute roles={['principal', 'hod', 'asst_hod']}>
+            <DeviceManager />
           </ProtectedRoute>
         }
       />
