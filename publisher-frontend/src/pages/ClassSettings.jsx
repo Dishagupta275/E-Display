@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useToast } from "../components/Toast";
 
-const API_BASE = import.meta.env.VITE_API_URL
+const API_BASE = import.meta.env.VITE_API_URL || "http:///e-dispy.onrender.com";
 
 const c = {
   bg: "#f5f4f0", surface: "#ffffff", border: "#e2e0d8",
