@@ -235,7 +235,7 @@ export default function NoticeEditor() {
                 </div>
                 {notice.image_url && (
                   <img
-                    src={`http:///e-display.onrender.com/${notice.image_url.replace(/^\//, '')}`}
+                    src={`${import.meta.env.VITE_API_URL || "https://e-dispy.onrender.com"}/${notice.image_url.replace(/^\//, '')}`}
                     alt={notice.title}
                     style={s.noticeImg}
                   />
