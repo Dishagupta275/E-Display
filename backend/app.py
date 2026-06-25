@@ -10,7 +10,7 @@ from mqtt_publisher import mqtt_publisher
 from datetime import datetime, time
 
 
-def create_app(config_name='development'):
+def create_app(config_name='production'):
     """Application factory"""
     app = Flask(__name__)
     
@@ -50,7 +50,14 @@ def create_app(config_name='development'):
         """Handle 500 errors"""
         db.session.rollback()
         return {'message': 'Internal server error'}, 500
-    
+
+    # ✅ FIX: Create tables and seed data here so it runs under gunicorn on Render too
+    # db.create_all() only creates tables that don't exist — safe to call every startup
+    # seed_data() checks if data already exists before inserting — also safe every startup
+    with app.app_context():
+        db.create_all()
+        seed_data()
+
     # Connect MQTT on startup
     mqtt_publisher.connect()
 
@@ -60,7 +67,7 @@ def create_app(config_name='development'):
 def seed_data():
     """Seed initial data on first startup"""
     
-    # Check if departments already exist
+    # Check if departments already exist — if yes, skip seeding
     if Department.query.first() is not None:
         return
     
@@ -118,13 +125,11 @@ def seed_data():
         print(f"✗ Error seeding data: {str(e)}")
 
 
-# Create app instance for Flask CLI
-app = create_app(os.environ.get('FLASK_ENV', 'development'))
+# Create app instance for Flask CLI and gunicorn
+# Reads FLASK_ENV from environment — set to 'production' on Render
+app = create_app(os.environ.get('FLASK_ENV', 'production'))
 
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-        seed_data()
-    
+    # Only runs locally with: python app.py
     app.run(debug=True, host='0.0.0.0', port=5000)
