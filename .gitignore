@@ -1,0 +1,41 @@
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+env/
+
+# ── Secrets & env ──
+.env
+.env.local
+.env.production
+.env.*.local
+
+# ── Database & data ──
+*.db
+*.sqlite
+*.sqlite3
+backend/data/edisplay.db
+backend/data/timetables/
+backend/data/classes.json
+
+# ── Node ──
+node_modules/
+dist/
+dist-ssr/
+.cache/
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE ──
+.vscode/
+.idea/
+*.suo
+*.user
+
+# ── Logs ──
+*.log
+npm-debug.log*

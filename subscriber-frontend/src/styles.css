@@ -1,0 +1,254 @@
+/* =========================
+   GLOBAL RESET
+========================= */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #ffffff;
+}
+
+/* =========================
+   FULL SCREEN LAYOUT
+========================= */
+.screen {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+}
+
+/* =========================
+   TOP HEADER
+========================= */
+.top-header {
+  background: black;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 20px;
+}
+
+.logo {
+  height: 70px;
+}
+
+.college-title {
+  font-size: 36px;
+  font-weight: bold;
+}
+
+/* =========================
+   ACADEMIC BAR
+========================= */
+.academic-bar {
+  background: #ff9636;
+  color: black;
+  text-align: center;
+  font-size: 24px;
+  font-weight: bold;
+  padding: 10px;
+}
+
+/* =========================
+   INFO STRIP
+========================= */
+.info-strip {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1.5fr;
+}
+
+.info {
+  padding: 10px;
+  font-size: 20px;
+  font-weight: bold;
+  border: 1px solid white;
+}
+
+.info.green {
+  background: #00c9a7;
+}
+
+.info.yellow {
+  background: #f9f871;
+}
+
+/* =========================
+   NOTICE BAR
+========================= */
+.notice-bar {
+  background: #0d5f8a;
+  color: white;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.notice-text {
+  display: inline-block;
+  padding-left: 100%;
+  font-size: 26px;
+  font-style: italic;
+  animation: scroll 18s linear infinite;
+}
+
+@keyframes scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+/* =========================
+   TIMETABLE AREA
+========================= */
+.timetable-area {
+  flex: 1;
+  padding: 6px;
+  background: #ffffff;
+}
+
+.tt-container {
+  width: 100%;
+  height: 100%;
+}
+
+.tt-table {
+  width: 100%;
+  height: 100%;
+  border-collapse: collapse;
+}
+
+/* =========================
+   TABLE HEADERS
+========================= */
+.dark {
+  background: #444444;
+  color: white;
+}
+
+.tt-head {
+  font-size: 18px;
+  font-weight: bold;
+  padding: 10px;
+  border: 2px solid white;
+}
+
+/* Day column */
+.tt-day {
+  font-size: 22px;
+  font-weight: bold;
+  padding: 10px;
+  border: 2px solid white;
+  background: #444444;
+  color: white;
+}
+
+/* =========================
+   SUBJECT CELLS (CORE)
+========================= */
+.tt-cell {
+  background: white;
+  border: 2px solid #9e9e9e;
+  padding: 8px;
+  text-align: center;
+  vertical-align: middle;
+  min-width: 110px;
+  min-height: 70px;
+}
+
+/* Subject text */
+.subject-text {
+  font-size: 18px;
+  font-weight: bold;
+  color: #000;
+  line-height: 1.3;
+}
+
+/* Faculty text */
+.faculty-text {
+  font-size: 14px;
+  color: #333;
+  margin-top: 4px;
+}
+
+/* =========================
+   SUBJECT COLOR RULES
+========================= */
+.tt-cell.lab {
+  background-color: #00c9a7;
+}
+
+.tt-cell.break {
+  background-color: #1e73be;
+  color: white;
+}
+
+.tt-cell.sports {
+  background-color: #fff600;
+}
+
+/* Current running class */
+.tt-cell.current {
+  border: 4px solid #ff5c4d;
+  background-color: white;
+}
+
+/* =========================
+   BOTTOM PANEL
+========================= */
+.bottom-panel {
+  display: flex;
+  gap: 20px;
+  padding: 10px;
+}
+
+/* =========================
+   EVENTS
+========================= */
+.events-panel {
+  flex: 1;
+  background: #e9f5f4;
+  padding: 8px;
+  border-radius: 5px;
+}
+
+.events-title {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.events-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.event-btn {
+  background: #cde8ff;
+  padding: 6px 12px;
+  font-size: 15px;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+/* =========================
+   CLOCK
+========================= */
+.clock-panel {
+  width: 220px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+}
+
+.clock {
+  background: pink;
+  border: 5px solid black;
+  border-radius: 50px;
+  padding: 15px 25px;
+  font-size: 36px;
+  font-weight: bold;
+}

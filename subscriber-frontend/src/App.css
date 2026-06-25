@@ -1,0 +1,30 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+  max-width: 100%;
+  padding: 0;
+  text-align: left;
+}
+
+@media (max-width: 768px) {
+  div[style*="leftPanel"] {
+    width: 100% !important;
+    padding: 32px 24px !important;
+  }
+  div[style*="rightPanel"] {
+    display: none !important;
+  }
+  aside {
+    display: none !important;
+  }
+}
