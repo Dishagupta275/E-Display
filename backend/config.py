@@ -25,7 +25,6 @@ class Config:
     CORS_ORIGINS = [
     'http://localhost:5173',
     'http://localhost:5174',
-     'https://e-dispy.onrender.com',
     'https://e-display-1-w7jf.onrender.com',
     'https://e-dispy-publisher.onrender.com '
 ]
