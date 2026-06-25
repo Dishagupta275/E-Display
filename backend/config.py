@@ -3,6 +3,7 @@ from datetime import timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
+
 class Config:
     """Base configuration"""
     DB_USER = os.environ.get('DB_USER')
@@ -22,12 +23,7 @@ class Config:
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
     
     # CORS Configuration
-   CORS_ORIGINS = [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'https://e-dispy-publisher.onrender.com',
-    'https://e-display-1-w7jf.onrender.com'
-]
+    CORS_ORIGINS = ['http://localhost:5173', 'http://localhost:5174', 'https://e-dispy-publisher.onrender.com', 'https://e-display-1-w7jf.onrender.com']
 
 class DevelopmentConfig(Config):
     """Development configuration"""
