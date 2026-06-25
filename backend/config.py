@@ -26,7 +26,7 @@ class Config:
     'http://localhost:5173',
     'http://localhost:5174',
     'https://e-dispy-publisher.onrender.com',
-    'https://e-display-1-w7jf.onrender.com',
+    'https://e-display-1-w7jf.onrender.com'
 ]
 
 class DevelopmentConfig(Config):
