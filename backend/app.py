@@ -16,14 +16,14 @@ def create_app(config_name='production'):
     # Load configuration
     app.config.from_object(config[config_name])
     
-    # ✅ FIX: Single CORS configuration explicitly allowing your exact frontend domain
+    # ✅ CORS configuration explicitly allowing your exact frontend domain
     CORS(app, resources={
         r"/api/*": {
             "origins": [
-                "https://onrender.com",  # Your production frontend
+                "https://e-dispy-publisher.onrender.com",  # Your production frontend
                 "http://localhost:3000",                  # Local React/Vue development
                 "http://127.0.0.1:3000",
-                "http://localhost:5173",                  # Local Vite development (if used)
+                "http://localhost:5173",                  # Local Vite development
             ],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization", "Access-Control-Allow-Headers"]
@@ -67,13 +67,17 @@ def create_app(config_name='production'):
         db.session.rollback()
         return {'message': 'Internal server error'}, 500
 
-    # ✅ Create tables and seed data here so it runs under gunicorn on Render too
+    # Create tables and seed data here under app context
     with app.app_context():
         db.create_all()
         seed_data()
 
-    # Connect MQTT on startup
-    mqtt_publisher.connect()
+    # ✅ FIX: Connect MQTT safely so authorization failures (Code 5) do not crash the container
+    try:
+        print("Connecting to HiveMQ MQTT broker...")
+        mqtt_publisher.connect()
+    except Exception as e:
+        print(f"⚠️ MQTT Connection bypassed during startup due to error: {str(e)}")
 
     return app
 
@@ -130,9 +134,6 @@ def seed_data():
         
         db.session.commit()
         print("✓ Database seeded with initial data")
-        print(f"  - Departments: {', '.join(departments_data)}")
-        print(f"  - Principal account: principal@edisplay.com / Principal@123")
-        print(f"  - Period timings: 9 periods configured")
     
     except Exception as e:
         db.session.rollback()
@@ -140,7 +141,6 @@ def seed_data():
 
 
 # Create app instance for Flask CLI and gunicorn
-# Reads FLASK_ENV from environment — set to 'production' on Render
 app = create_app(os.environ.get('FLASK_ENV', 'production'))
 
 
