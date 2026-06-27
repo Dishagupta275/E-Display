@@ -1,6 +1,6 @@
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token
-from models import db, User, Class, Device
+from models import db, User, Class, Device, NoticeBoard, Notice
 from datetime import datetime, timedelta
 from . import devices_bp
 
@@ -15,9 +15,11 @@ def identify_device():
     Body: { "device_uid": "<uuid generated/stored on the display>" }
 
     - If device_uid is new -> create it as UNASSIGNED, return registered: false
-    - If device_uid exists but has no class_id -> still unassigned
-    - If device_uid exists and has a class_id -> return the full class object
-      so the display can render it immediately, with NO login / NO manual pick.
+    - If device_uid exists but has no class_id AND no board_id -> still unassigned
+    - If device_uid exists and device_mode == 'class' with a class_id -> return the
+      full class object so the display can render the timetable, no login needed.
+    - If device_uid exists and device_mode == 'board' with a board_id -> return the
+      full board + notices so the display can render the notice board, no login needed.
     """
     try:
         data = request.get_json() or {}
@@ -39,7 +41,7 @@ def identify_device():
             )
             db.session.add(device)
             db.session.commit()
-            return jsonify({'registered': False, 'message': 'Device registered as unassigned. Ask admin to assign a class.'}), 200
+            return jsonify({'registered': False, 'message': 'Device registered as unassigned. Ask admin to assign a class or notice board.'}), 200
 
         # Existing device — refresh heartbeat info
         device.is_online = True
@@ -47,6 +49,35 @@ def identify_device():
         device.ip_address = ip_address
         db.session.commit()
 
+        # ── Notice board mode ──
+        if device.device_mode == 'board':
+            if not device.board_id:
+                return jsonify({'registered': False, 'message': 'Device is registered but not yet assigned to a notice board.'}), 200
+
+            board = NoticeBoard.query.get(device.board_id)
+            if not board or not board.is_active:
+                # Board was deleted/deactivated — fall back to unassigned state
+                return jsonify({'registered': False, 'message': 'Assigned notice board no longer exists.'}), 200
+
+            notices = Notice.query.filter_by(
+                board_id=board.id, is_active=True
+            ).order_by(Notice.order_number).all()
+
+            device_token = create_access_token(
+                identity=f"device:{device.id}",
+                expires_delta=timedelta(days=3650)
+            )
+
+            return jsonify({
+                'registered': True,
+                'device': device.to_dict(),
+                'device_mode': 'board',
+                'board': board.to_dict(),
+                'notices': [n.to_dict() for n in notices],
+                'access_token': device_token
+            }), 200
+
+        # ── Class / timetable mode (default) ──
         if not device.class_id:
             return jsonify({'registered': False, 'message': 'Device is registered but not yet assigned to a class.'}), 200
 
@@ -65,6 +96,7 @@ def identify_device():
         return jsonify({
             'registered': True,
             'device': device.to_dict(),
+            'device_mode': 'class',
             'class': cls.to_dict(),
             'access_token': device_token
         }), 200
@@ -117,6 +149,16 @@ def list_devices():
 @devices_bp.route('/devices/<int:device_id>/assign', methods=['PUT'])
 @jwt_required()
 def assign_device(device_id):
+    """
+    Body can include:
+      - class_id (int or null) + device_mode='class'  -> assign to a classroom timetable
+      - board_id (int or null) + device_mode='board'  -> assign to a notice board
+      - friendly_name (optional, either mode)
+
+    A device shows exactly one thing at a time, controlled by device_mode.
+    Assigning one mode does not erase the other mode's saved assignment —
+    switching device_mode back and forth remembers the last class/board picked.
+    """
     try:
         jid = get_jwt_identity()
         user = User.query.get(int(jid)) if jid is not None else None
@@ -130,16 +172,29 @@ def assign_device(device_id):
             return jsonify({'message': 'Device not found'}), 404
 
         data = request.get_json() or {}
-        class_id = data.get('class_id')
+        device_mode = data.get('device_mode')
         friendly_name = data.get('friendly_name')
 
-        if class_id is not None:
-            cls = Class.query.get(class_id)
-            if not cls:
-                return jsonify({'message': 'Class not found'}), 404
-            if user.role in ['hod', 'asst_hod'] and cls.department_id != user.department_id:
-                return jsonify({'message': 'Can only assign classes in your own department'}), 403
+        if 'class_id' in data:
+            class_id = data.get('class_id')
+            if class_id is not None:
+                cls = Class.query.get(class_id)
+                if not cls:
+                    return jsonify({'message': 'Class not found'}), 404
+                if user.role in ['hod', 'asst_hod'] and cls.department_id != user.department_id:
+                    return jsonify({'message': 'Can only assign classes in your own department'}), 403
             device.class_id = class_id
+
+        if 'board_id' in data:
+            board_id = data.get('board_id')
+            if board_id is not None:
+                board = NoticeBoard.query.get(board_id)
+                if not board:
+                    return jsonify({'message': 'Notice board not found'}), 404
+            device.board_id = board_id
+
+        if device_mode in ('class', 'board'):
+            device.device_mode = device_mode
 
         if friendly_name is not None:
             device.friendly_name = friendly_name
@@ -163,6 +218,7 @@ def unassign_device(device_id):
         if not device:
             return jsonify({'message': 'Device not found'}), 404
         device.class_id = None
+        device.board_id = None
         db.session.commit()
         return jsonify(device.to_dict()), 200
     except Exception as e:

@@ -4,7 +4,6 @@ __pycache__/
 .env
 uploads/*
 !uploads/.gitkeep
-migrations/versions/
 venv/
 .vscode/
 *.sqlite

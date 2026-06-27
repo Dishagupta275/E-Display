@@ -413,8 +413,14 @@ export default function App() {
       });
       const data = await res.json();
 
-      if (data.registered && data.class) {
-        // Known device, already assigned — skip login + class select entirely.
+      if (data.registered && data.device_mode === "board" && data.board) {
+        // Known device, auto-assigned to a notice board — skip login + class
+        // select entirely, same as the class flow below.
+        setSelectedBoard({ board: data.board, notices: data.notices || [] });
+        setDeviceToken(data.access_token);
+        setScreen("noticeboard");
+      } else if (data.registered && data.class) {
+        // Known device, already assigned to a class — skip login + class select entirely.
         setSelectedClass(data.class);
         setDeviceToken(data.access_token);
         setScreen("display");
@@ -504,9 +510,13 @@ export default function App() {
         <NoticeBoard
           board={selectedBoard.board}
           notices={selectedBoard.notices}
-          token={authData?.token}
+          token={authData?.token || deviceToken}
           onBack={() => {
-            setScreen("classSelect");
+            // If this device got here via manual login (authData exists),
+            // go back to the class/board picker. If it got here via
+            // auto-assignment (kiosk), fall back to login — same pattern
+            // Display.jsx uses for onExitKiosk.
+            setScreen(authData ? "classSelect" : "login");
             setSelectedBoard(null);
           }}
         />

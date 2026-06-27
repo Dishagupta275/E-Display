@@ -419,12 +419,15 @@ class Device(db.Model):
     device_uid    = db.Column(db.String(64), unique=True, nullable=False)  # generated UUID, persisted on the display
     friendly_name = db.Column(db.String(100), nullable=True)               # e.g. "CSE Block - Room 301"
     class_id      = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=True)  # NULL = unassigned
+    board_id      = db.Column(db.Integer, db.ForeignKey('notice_boards.id'), nullable=True)  # NULL = no board assigned
+    device_mode   = db.Column(db.String(20), default='class')  # 'class' or 'board' — which one to actually show
     is_online     = db.Column(db.Boolean, default=False)
     last_seen     = db.Column(db.DateTime, nullable=True)
     ip_address    = db.Column(db.String(50), nullable=True)
     registered_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     class_ref = db.relationship('Class', backref='registered_devices')
+    board_ref = db.relationship('NoticeBoard', backref='registered_devices')
 
     def to_dict(self):
         return {
@@ -434,6 +437,9 @@ class Device(db.Model):
             'class_id':      self.class_id,
             'class_name':    self.class_ref.display_name if self.class_ref else None,
             'room_number':   self.class_ref.room_number if self.class_ref else None,
+            'board_id':      self.board_id,
+            'board_name':    self.board_ref.name if self.board_ref else None,
+            'device_mode':   self.device_mode,
             'is_online':     self.is_online,
             'last_seen':     self.last_seen.isoformat() if self.last_seen else None,
             'ip_address':    self.ip_address,

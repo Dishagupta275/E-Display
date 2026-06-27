@@ -1,10 +1,10 @@
 import axios from 'axios';
 
-const BASE_URL = "http:///e-display.onrender.com";
+const API_BASE = import.meta.env.VITE_API_URL || "https://e-dispy.onrender.com/";
 
 // Create axios instance
 const api = axios.create({
-  baseURL: BASE_URL,
+  baseURL: API_BASE,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -92,6 +92,11 @@ export const announcementsAPI = {
   getByDept: (deptId) => api.get(`/api/announcements/${deptId}`),
   create:    (data)  => api.post('/api/announcements', data),
   delete:    (id)    => api.delete(`/api/announcements/${id}`),
+};
+
+// ─── NOTICE BOARDS ──────────────────────
+export const noticeBoardsAPI = {
+  getAll: () => api.get('/api/notice-boards'),
 };
 
 // ─── DEVICES ────────────────────────────
