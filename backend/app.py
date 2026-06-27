@@ -41,7 +41,14 @@ def create_app(config_name='production'):
             "origins": [
                 "https://e-dispy-publisher.onrender.com",
                 "https://e-display-1-w7jf.onrender.com",
+<<<<<<< HEAD
                 
+=======
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+>>>>>>> 5953c2a8fedee5c1de8f805d8819fedba8836ec6
             ],
             "methods": ["GET", "OPTIONS"],
         }
@@ -163,4 +170,8 @@ app = create_app(os.environ.get('FLASK_ENV', 'production'))
 
 if __name__ == '__main__':
     # Only runs locally with: python app.py
+<<<<<<< HEAD
     app.run(debug=True, host='0.0.0.0', port=5000)
+=======
+    app.run(debug=True, host='0.0.0.0', port=5000)
+>>>>>>> 5953c2a8fedee5c1de8f805d8819fedba8836ec6
