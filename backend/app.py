@@ -16,17 +16,37 @@ def create_app(config_name='production'):
     # Load configuration
     app.config.from_object(config[config_name])
     
-    # ✅ CORS configuration explicitly allowing your exact frontend domain
+    # ✅ FIX: CORS configuration explicitly allowing your actual deployed frontend domains.
+    # NOTE: "https://onrender.com" (the old value here) is not a real origin —
+    # it only matches that exact bare domain, never subdomains like
+    # "https://e-dispy-publisher.onrender.com". Browsers match origins exactly,
+    # so every cross-origin request from the real deployed apps was being
+    # blocked before it ever reached Flask. This is why newly-registered
+    # devices never appeared in the publisher's list — the subscriber's
+    # POST /api/devices/identify call never made it through.
     CORS(app, resources={
         r"/api/*": {
             "origins": [
-                "https://e-dispy-publisher.onrender.com",  # Your production frontend
-                "http://localhost:3000",                  # Local React/Vue development
+                "https://e-dispy-publisher.onrender.com",  # Publisher (deployed)
+                "https://e-display-1-w7jf.onrender.com",   # Subscriber (deployed)
+                "http://localhost:3000",                   # Local React/Vue development
                 "http://127.0.0.1:3000",
-                "http://localhost:5173",                  # Local Vite development
+                "http://localhost:5173",                   # Local Vite development
+                "http://127.0.0.1:5173",
             ],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization", "Access-Control-Allow-Headers"]
+        },
+        r"/uploads/*": {
+            "origins": [
+                "https://e-dispy-publisher.onrender.com",
+                "https://e-display-1-w7jf.onrender.com",
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+            ],
+            "methods": ["GET", "OPTIONS"],
         }
     })
     
@@ -67,17 +87,13 @@ def create_app(config_name='production'):
         db.session.rollback()
         return {'message': 'Internal server error'}, 500
 
-    # Create tables and seed data here under app context
+    # ✅ Create tables and seed data here so it runs under gunicorn on Render too
     with app.app_context():
         db.create_all()
         seed_data()
 
-    # ✅ FIX: Connect MQTT safely so authorization failures (Code 5) do not crash the container
-    try:
-        print("Connecting to HiveMQ MQTT broker...")
-        mqtt_publisher.connect()
-    except Exception as e:
-        print(f"⚠️ MQTT Connection bypassed during startup due to error: {str(e)}")
+    # Connect MQTT on startup
+    mqtt_publisher.connect()
 
     return app
 
@@ -134,6 +150,9 @@ def seed_data():
         
         db.session.commit()
         print("✓ Database seeded with initial data")
+        print(f"  - Departments: {', '.join(departments_data)}")
+        print(f"  - Principal account: principal@edisplay.com / Principal@123")
+        print(f"  - Period timings: 9 periods configured")
     
     except Exception as e:
         db.session.rollback()
@@ -141,6 +160,7 @@ def seed_data():
 
 
 # Create app instance for Flask CLI and gunicorn
+# Reads FLASK_ENV from environment — set to 'production' on Render
 app = create_app(os.environ.get('FLASK_ENV', 'production'))
 
 
