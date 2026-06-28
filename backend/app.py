@@ -2,7 +2,7 @@ import os
 from flask import Flask, send_from_directory
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
-from flask_migrate import Migrate
+from flask_migrate import Migrate, upgrade as run_migrations
 from config import config
 from models import db, Department, User, PeriodTiming, Device
 from routes import register_blueprints
@@ -41,14 +41,10 @@ def create_app(config_name='production'):
             "origins": [
                 "https://e-dispy-publisher.onrender.com",
                 "https://e-display-1-w7jf.onrender.com",
-<<<<<<< HEAD
-                
-=======
                 "http://localhost:3000",
                 "http://127.0.0.1:3000",
                 "http://localhost:5173",
                 "http://127.0.0.1:5173",
->>>>>>> 5953c2a8fedee5c1de8f805d8819fedba8836ec6
             ],
             "methods": ["GET", "OPTIONS"],
         }
@@ -91,9 +87,18 @@ def create_app(config_name='production'):
         db.session.rollback()
         return {'message': 'Internal server error'}, 500
 
-    # ✅ Create tables and seed data here so it runs under gunicorn on Render too
+    # ✅ Create tables, run pending migrations, and seed data — all on startup,
+    # since the free Render tier has no Shell access to run `flask db upgrade`
+    # manually. run_migrations() is idempotent: if a migration was already
+    # applied, it's skipped automatically, so this is safe to run on every
+    # single deploy/restart, not just the first one.
     with app.app_context():
         db.create_all()
+        try:
+            run_migrations()
+            print("✓ Database migrations applied (or already up to date)")
+        except Exception as e:
+            print(f"⚠ Migration step failed: {e}")
         seed_data()
 
     # Connect MQTT on startup
@@ -170,8 +175,4 @@ app = create_app(os.environ.get('FLASK_ENV', 'production'))
 
 if __name__ == '__main__':
     # Only runs locally with: python app.py
-<<<<<<< HEAD
     app.run(debug=True, host='0.0.0.0', port=5000)
-=======
-    app.run(debug=True, host='0.0.0.0', port=5000)
->>>>>>> 5953c2a8fedee5c1de8f805d8819fedba8836ec6
