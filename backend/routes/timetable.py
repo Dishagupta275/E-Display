@@ -172,12 +172,13 @@ def publish_timetable(class_id):
         
         # Publish to MQTT
         mqtt_publisher.connect()
-        mqtt_publisher.publish_timetable(class_obj.display_name, timetable)
-        
+        mqtt_ok = mqtt_publisher.publish_timetable(class_obj.display_name, timetable)
+
         return jsonify({
-            'message': 'Timetable published successfully',
+            'message': 'Timetable published successfully' if mqtt_ok else 'Timetable saved, but live update may be delayed (MQTT not connected)',
             'class': class_obj.display_name,
-            'topic': f'edisplay/timetable/{class_obj.display_name}'
+            'topic': f'edisplay/timetable/{class_obj.display_name}',
+            'live_update_sent': mqtt_ok
         }), 200
     
     except Exception as e:
