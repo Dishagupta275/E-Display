@@ -70,14 +70,21 @@ export default function NoticeBoard({ board, notices: initialNotices, token, onB
   // Helper — builds a clean image URL regardless of leading-slash inconsistency
   const buildImageUrl = (path) => `${API_BASE}/${(path || "").replace(/^\//, '')}`;
 
-  // Grid layout
+  // Grid layout — shows ALL active notices, columns/rows auto-adjust to count
   const renderGrid = () => {
-    const show = activeNotices.slice(0, 4);
-    const cols = show.length <= 2 ? show.length : 2;
+    const show = activeNotices;
+    const count = show.length;
+    // Pick a column count that keeps cards roughly square-ish as count grows
+    const cols = count <= 1 ? 1
+      : count <= 4 ? 2
+      : count <= 9 ? 3
+      : count <= 16 ? 4
+      : 5;
     return (
       <div style={{
         display: 'grid',
         gridTemplateColumns: `repeat(${cols}, 1fr)`,
+        gridAutoRows: '1fr',
         gap: 16,
         padding: 20,
         flex: 1,
@@ -157,6 +164,8 @@ export default function NoticeBoard({ board, notices: initialNotices, token, onB
       <div style={gs.header}>
         <div style={gs.headerLeft}>
           <button onClick={onBack} style={gs.backBtn}>← Back</button>
+          {/* Logo placeholder — swap this div for <img src={logoUrl} style={gs.logoImg} /> once a logo is available */}
+          <div style={gs.logoPlaceholder}>🎓</div>
           <div>
             <div style={gs.collegeName}>SPHOORTHY ENGINEERING COLLEGE</div>
             <div style={gs.boardName}>📋 {board?.name}</div>
@@ -177,11 +186,11 @@ export default function NoticeBoard({ board, notices: initialNotices, token, onB
         <div style={gs.empty}>No notices on this board yet.</div>
       ) : board?.display_mode === 'grid' ? renderGrid() : renderCarousel()}
 
-      {/* Fullscreen overlay */}
+      {/* Fullscreen overlay — true edge-to-edge takeover, no boxed modal */}
       {fullScreen && (
         <div style={gs.overlay} onClick={() => setFullScreen(null)}>
-          <div style={gs.overlayBox} onClick={e => e.stopPropagation()}>
-            <button onClick={() => setFullScreen(null)} style={gs.closeBtn}>✕ Close</button>
+          <button onClick={() => setFullScreen(null)} style={gs.closeBtn}>✕ Close</button>
+          <div style={gs.overlayContentWrap} onClick={e => e.stopPropagation()}>
             {fullScreen.image_url && (
               <img
                 src={buildImageUrl(fullScreen.image_url)}
@@ -189,10 +198,12 @@ export default function NoticeBoard({ board, notices: initialNotices, token, onB
                 style={gs.overlayImg}
               />
             )}
-            <h1 style={gs.overlayTitle}>{fullScreen.title}</h1>
-            {fullScreen.content && (
-              <p style={gs.overlayContent}>{fullScreen.content}</p>
-            )}
+            <div style={gs.overlayTextBlock}>
+              <h1 style={gs.overlayTitle}>{fullScreen.title}</h1>
+              {fullScreen.content && (
+                <p style={gs.overlayContent}>{fullScreen.content}</p>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -212,6 +223,15 @@ const gs = {
   header: { background: '#0b3d91', color: '#fff', padding: '14px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   headerLeft: { display: 'flex', alignItems: 'center', gap: 16 },
   backBtn: { padding: '6px 14px', background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 6, cursor: 'pointer', fontSize: 13 },
+  logoPlaceholder: {
+    width: 44, height: 44, borderRadius: '50%',
+    background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.25)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 22, flexShrink: 0,
+  },
+  logoImg: {
+    width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', flexShrink: 0,
+  },
   collegeName: { fontSize: 18, fontWeight: 800, letterSpacing: 1 },
   boardName: { fontSize: 13, opacity: 0.8, marginTop: 2 },
   headerRight: { textAlign: 'right' },
@@ -219,10 +239,10 @@ const gs = {
   badge: { fontSize: 12, opacity: 0.7, marginTop: 2 },
   empty: { flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 20 },
   // Grid
-  noticeCard: { background: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 20, cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)', transition: 'all 0.2s', overflow: 'hidden' },
-  noticeImg: { width: '100%', height: 200, objectFit: 'cover', borderRadius: 8, marginBottom: 12 },
-  noticeTitle: { fontSize: 20, fontWeight: 700, color: '#fff', margin: '0 0 8px' },
-  noticeContent: { fontSize: 14, color: 'rgba(255,255,255,0.7)', lineHeight: 1.6, margin: 0 },
+  noticeCard: { background: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 20, cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)', transition: 'all 0.2s', overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 },
+  noticeImg: { width: '100%', flex: 1, minHeight: 0, objectFit: 'cover', borderRadius: 8, marginBottom: 12 },
+  noticeTitle: { fontSize: 20, fontWeight: 700, color: '#fff', margin: '0 0 8px', flexShrink: 0 },
+  noticeContent: { fontSize: 14, color: 'rgba(255,255,255,0.7)', lineHeight: 1.6, margin: 0, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' },
   // Carousel
   carouselWrapper: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, cursor: 'pointer', position: 'relative' },
   carouselImg: { maxWidth: '70%', maxHeight: '55vh', objectFit: 'contain', borderRadius: 12, marginBottom: 24 },
@@ -232,13 +252,29 @@ const gs = {
   dots: { display: 'flex', gap: 8, marginTop: 32, justifyContent: 'center' },
   dot: { width: 10, height: 10, borderRadius: '50%', cursor: 'pointer', transition: 'all 0.3s' },
   timerHint: { position: 'absolute', bottom: 20, right: 24, fontSize: 12, color: 'rgba(255,255,255,0.4)' },
-  // Fullscreen
-  overlay: { position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 },
-  overlayBox: { background: '#fff', borderRadius: 16, padding: 40, maxWidth: 900, width: '90%', maxHeight: '90vh', overflow: 'auto', textAlign: 'center' },
-  closeBtn: { float: 'right', padding: '6px 14px', background: '#f0f4f8', border: '1px solid #ddd', borderRadius: 6, cursor: 'pointer', marginBottom: 16 },
-  overlayImg: { maxWidth: '100%', maxHeight: '50vh', objectFit: 'contain', borderRadius: 8, marginBottom: 20 },
-  overlayTitle: { fontSize: 28, fontWeight: 800, color: '#1a237e', margin: '0 0 12px' },
-  overlayContent: { fontSize: 16, color: '#444', lineHeight: 1.7, margin: 0 },
+  // Fullscreen — true edge-to-edge takeover, not a boxed modal
+  overlay: {
+    position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+    background: '#0b1f4a', display: 'flex', flexDirection: 'column',
+    zIndex: 9999, overflow: 'auto',
+  },
+  closeBtn: {
+    position: 'fixed', top: 20, right: 24, zIndex: 10000,
+    padding: '10px 20px', background: 'rgba(255,255,255,0.15)', color: '#fff',
+    border: '1px solid rgba(255,255,255,0.3)', borderRadius: 8, cursor: 'pointer',
+    fontSize: 14, fontWeight: 600,
+  },
+  overlayContentWrap: {
+    flex: 1, width: '100%', height: '100%',
+    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+    padding: '60px 40px',
+  },
+  overlayImg: {
+    maxWidth: '90vw', maxHeight: '65vh', objectFit: 'contain', borderRadius: 12, marginBottom: 32,
+  },
+  overlayTextBlock: { textAlign: 'center', maxWidth: '80vw' },
+  overlayTitle: { fontSize: 42, fontWeight: 800, color: '#fff', margin: '0 0 16px' },
+  overlayContent: { fontSize: 22, color: 'rgba(255,255,255,0.85)', lineHeight: 1.7, margin: 0 },
   // Footer
   footer: { background: '#0b3d91', color: '#fff', display: 'flex', justifyContent: 'space-between', padding: '10px 28px', fontSize: 14, fontWeight: 600 },
 };
