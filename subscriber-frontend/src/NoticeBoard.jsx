@@ -164,8 +164,14 @@ export default function NoticeBoard({ board, notices: initialNotices, token, onB
       <div style={gs.header}>
         <div style={gs.headerLeft}>
           <button onClick={onBack} style={gs.backBtn}>← Back</button>
-          {/* Logo placeholder — swap this div for <img src={logoUrl} style={gs.logoImg} /> once a logo is available */}
-          <div style={gs.logoPlaceholder}>🎓</div>
+          {/* College logo — place logo.jpg in subscriber-frontend/public/ to enable */}
+          <img
+            src="/logo.jpeg"
+            alt="College logo"
+            style={gs.logoImg}
+            onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+          />
+          <div style={{ ...gs.logoPlaceholder, display: 'none' }}>🎓</div>
           <div>
             <div style={gs.collegeName}>SPHOORTHY ENGINEERING COLLEGE</div>
             <div style={gs.boardName}>📋 {board?.name}</div>
@@ -244,9 +250,9 @@ const gs = {
   noticeTitle: { fontSize: 20, fontWeight: 700, color: '#fff', margin: '0 0 8px', flexShrink: 0 },
   noticeContent: { fontSize: 14, color: 'rgba(255,255,255,0.7)', lineHeight: 1.6, margin: 0, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' },
   // Carousel
-  carouselWrapper: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40, cursor: 'pointer', position: 'relative' },
-  carouselImg: { maxWidth: '70%', maxHeight: '55vh', objectFit: 'contain', borderRadius: 12, marginBottom: 24 },
-  carouselText: { textAlign: 'center', maxWidth: 800 },
+  carouselWrapper: { flex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 40px', cursor: 'pointer', position: 'relative', boxSizing: 'border-box' },
+  carouselImg: { width: '100%', maxWidth: '100%', flex: 1, minHeight: 0, objectFit: 'contain', borderRadius: 12, marginBottom: 24 },
+  carouselText: { textAlign: 'center', maxWidth: '90%', flexShrink: 0 },
   carouselTitle: { fontSize: 36, fontWeight: 800, color: '#fff', margin: '0 0 16px' },
   carouselContent: { fontSize: 20, color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, margin: 0 },
   dots: { display: 'flex', gap: 8, marginTop: 32, justifyContent: 'center' },
