@@ -163,7 +163,7 @@ export default function NoticeBoard({ board, notices: initialNotices, token, onB
       {/* Header */}
       <div style={gs.header}>
         <div style={gs.headerLeft}>
-          <button onClick={onBack} style={gs.backBtn}>← Back</button>
+          
           {/* College logo — place logo.jpg in subscriber-frontend/public/ to enable */}
           <img
             src="/logo.jpeg"
