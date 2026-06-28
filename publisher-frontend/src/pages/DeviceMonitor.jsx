@@ -12,6 +12,7 @@ const REFRESH_INTERVAL = 30;
 export default function DeviceMonitor() {
   const [devices, setDevices]           = useState([]);
   const [classOptions, setClassOptions] = useState([]); // flat list [{id, display_name, department_name, room_number}]
+  const [boardOptions, setBoardOptions] = useState([]); // flat list of notice boards [{id, name, ...}]
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState(null);
   const [lastRefresh, setLastRefresh]   = useState(null);
