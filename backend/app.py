@@ -4,7 +4,7 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_migrate import Migrate, upgrade as run_migrations
 from config import config
-from models import db, Department, User, PeriodTiming, Device
+from models import db, Department, User, PeriodTiming, DeviceStatus
 from routes import register_blueprints
 from mqtt_publisher import mqtt_publisher
 from datetime import datetime, time
