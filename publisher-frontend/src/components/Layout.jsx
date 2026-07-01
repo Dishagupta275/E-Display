@@ -431,7 +431,7 @@ export default function Layout({ children, pageTitle }) {
           <div className="edl-logo-wrap">
             <img
               src="/college-logo.png"
-              alt="Sphoorthi Engineering College"
+              alt="Sphoorthy Engineering College"
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
               onError={e => {
                 e.target.style.display = "none";
@@ -441,7 +441,7 @@ export default function Layout({ children, pageTitle }) {
             <span style={{ display: "none", fontSize: 22 }}>🏛</span>
           </div>
           <div className="edl-brand-text">
-            <span className="edl-college-name">Sphoorthi Engineering College</span>
+            <span className="edl-college-name">Sphoorthy Engineering College</span>
             <span className="edl-app-name">E‑DISPLAY · Smart Classroom System</span>
           </div>
         </div>
