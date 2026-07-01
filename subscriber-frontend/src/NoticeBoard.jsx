@@ -15,6 +15,7 @@ export default function NoticeBoard({ board, notices: initialNotices, token, onB
   const [fullScreen, setFullScreen] = useState(null);
   const [now, setNow] = useState(new Date());
   const timerRef = useRef(null);
+  const lastNoticesJSON = useRef(JSON.stringify(initialNotices || []));
 
   // Clock
   useEffect(() => {
@@ -54,6 +55,7 @@ export default function NoticeBoard({ board, notices: initialNotices, token, onB
       try {
         const payload = JSON.parse(message.toString());
         if (payload.notices) {
+          lastNoticesJSON.current = JSON.stringify(payload.notices); // keep poll fallback in sync
           setNotices(payload.notices);
           setCurrentIdx(0);
         }
@@ -63,6 +65,30 @@ export default function NoticeBoard({ board, notices: initialNotices, token, onB
     });
 
     return () => client.end();
+  }, [board?.id]);
+
+  // ── Notice board polling fallback (catches updates MQTT might miss) ──
+  useEffect(() => {
+    if (!board?.id) return;
+
+    const pollBoard = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/notice-boards/public/${board.id}`);
+        const data = await res.json();
+        const fresh = Array.isArray(data.notices) ? data.notices : [];
+        const freshJSON = JSON.stringify(fresh);
+        if (freshJSON !== lastNoticesJSON.current) {
+          lastNoticesJSON.current = freshJSON;
+          setNotices(fresh);
+          setCurrentIdx(0);
+        }
+      } catch (e) {
+        console.warn("Notice board poll failed", e);
+      }
+    };
+
+    const interval = setInterval(pollBoard, 20000); // every 20s
+    return () => clearInterval(interval);
   }, [board?.id]);
 
   const activeNotices = notices.filter(n => n.is_active !== false);

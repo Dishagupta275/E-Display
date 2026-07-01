@@ -227,8 +227,10 @@ export default function Display({ classObj, token, deviceId, onExitKiosk }) {
         } else if (topic.includes("/timetable/")) {
           const newTT = payload.timetable || payload;
           if (newTT && typeof newTT === "object") {
+            const fresh = JSON.stringify(newTT);
+            lastTimetableJSON.current = fresh; // keep poll fallback in sync
             setTimetable(newTT);
-            localStorage.setItem(`timetable_${classObj.id}`, JSON.stringify(newTT));
+            localStorage.setItem(`timetable_${classObj.id}`, fresh);
           }
         }
       } catch (err) {
@@ -275,6 +277,36 @@ export default function Display({ classObj, token, deviceId, onExitKiosk }) {
     pollNotifications();
     const interval = setInterval(pollNotifications, 10000);
     return () => clearInterval(interval);
+  }, [classObj?.id, token]);
+
+  // ── Timetable polling fallback (catches updates MQTT might miss) ──
+  const lastTimetableJSON = useRef(null);
+
+  useEffect(() => {
+    if (!classObj?.id) return;
+
+    const pollTimetable = async () => {
+      try {
+        const res = await fetch(`${API}/timetable/${classObj.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        const tt = data.timetable || data;
+        if (tt && typeof tt === "object") {
+          const fresh = JSON.stringify(tt);
+          if (fresh !== lastTimetableJSON.current) {
+            lastTimetableJSON.current = fresh;
+            setTimetable(tt);
+            localStorage.setItem(`timetable_${classObj.id}`, fresh);
+          }
+        }
+      } catch (e) {
+        console.warn("Timetable poll failed", e);
+      }
+    };
+
+    const interval2 = setInterval(pollTimetable, 20000); // every 20s
+    return () => clearInterval(interval2);
   }, [classObj?.id, token]);
 
   if (!classObj) return (
