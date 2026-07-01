@@ -22,8 +22,19 @@ class Config:
     UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
     
-    # CORS Configuration
-    CORS_ORIGINS = ['http://localhost:5173', 'http://localhost:5174', 'https://e-dispy-publisher.onrender.com', 'https://e-display-1-w7jf.onrender.com']
+    # CORS — all deployed and local frontend origins
+    CORS_ORIGINS = [
+        'http://localhost:5173',
+        'http://localhost:5174',
+        'http://localhost:3000',
+        'http://127.0.0.1:5173',
+        'http://127.0.0.1:3000',
+        'https://e-dispy.onrender.com',
+        'https://e-dispy-publisher.onrender.com',
+        'https://e-display-1-w7jf.onrender.com',
+        
+    ]
+
 
 class DevelopmentConfig(Config):
     """Development configuration"""
