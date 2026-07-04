@@ -2,7 +2,7 @@
 
 ###
 # AUTH: Login with correct principal credentials (should return JWT token)
-POST http://localhost:5000/api/auth/login
+POST https://e-dispy.onrender.com/api/auth/login
 Content-Type: application/json
 
 {
@@ -18,7 +18,7 @@ Content-Type: application/json
 
 ###
 # AUTH: Login with wrong password (should return 401)
-POST http://localhost:5000/api/auth/login
+POST https://e-dispy.onrender.com/api/auth/login
 Content-Type: application/json
 
 {
@@ -30,7 +30,7 @@ Content-Type: application/json
 
 ###
 # AUTH: Register HOD for CSE department
-POST http://localhost:5000/api/auth/register
+POST https://e-dispy.onrender.com/api/auth/register
 Content-Type: application/json
 
 {
@@ -41,7 +41,7 @@ Content-Type: application/json
   "department_id": 1
 }
 ### Register HOD ECE
-POST http://localhost:5000/api/auth/register
+POST https://e-dispy.onrender.com/api/auth/register
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
@@ -54,7 +54,7 @@ Authorization: Bearer {{token}}
 }
 
 ### Register HOD MECH
-POST http://localhost:5000/api/auth/register
+POST https://e-dispy.onrender.com/api/auth/register
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
@@ -67,7 +67,7 @@ Authorization: Bearer {{token}}
 }
 
 ### Register HOD DS
-POST http://localhost:5000/api/auth/register
+POST https://e-dispy.onrender.com/api/auth/register
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
@@ -80,7 +80,7 @@ Authorization: Bearer {{token}}
 }
 
 ### Register Faculty
-POST http://localhost:5000/api/auth/register
+POST https://e-dispy.onrender.com/api/auth/register
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
@@ -95,7 +95,7 @@ Authorization: Bearer {{token}}
 
 ###
 # AUTH: Register a faculty member
-POST http://localhost:5000/api/auth/register
+POST https://e-dispy.onrender.com/api/auth/register
 Content-Type: application/json
 
 {
@@ -110,21 +110,21 @@ Content-Type: application/json
 
 ###
 # AUTH: Get current logged in user (needs Bearer token)
-GET http://localhost:5000/api/auth/me
+GET https://e-dispy.onrender.com/api/auth/me
 Authorization: Bearer {{token}}
 
 # Expected: 200 OK, user object
 
 ###
 # AUTH: Get all users (principal only)
-GET http://localhost:5000/api/auth/users
+GET https://e-dispy.onrender.com/api/auth/users
 Authorization: Bearer {{token}}
 
 # Expected: 200 OK, list of users
 
 ###
 # DEPARTMENTS: Get all departments
-GET http://localhost:5000/api/departments
+GET https://e-dispy.onrender.com/api/departments
 Authorization: Bearer {{token}}
 
 # Expected: 200 OK, list of departments
@@ -133,7 +133,8 @@ Server: Werkzeug/2.3.7 Python/3.12.5
 Date: Sun, 07 Jun 2026 07:29:32 GMT
 Content-Type: application/json
 Content-Length: 33
-Access-Control-Allow-Origin: http://localhost:5173
+Access-Control-Allow-Origin: https://e-dispy.onrender.com
+
 Vary: Origin
 Connection: close
 
@@ -143,7 +144,7 @@ Connection: close
 
 ###
 # DEPARTMENTS: Create new department called IT (principal only)
-POST http://localhost:5000/api/departments
+POST https://e-dispy.onrender.com/api/departments
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
@@ -155,14 +156,14 @@ Authorization: Bearer {{token}}
 
 ###
 # CLASSES: Get all classes grouped by department and year
-GET http://localhost:5000/api/classes
+GET https://e-dispy.onrender.com/api/classes
 Authorization: Bearer {{token}}
 
 # Expected: 200 OK
 
 ###
 # CLASSES: Create CSE Year 2 Section A
-POST http://localhost:5000/api/classes
+POST https://e-dispy.onrender.com/api/classes
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
@@ -177,7 +178,7 @@ Authorization: Bearer {{token}}
 
 ###
 # CLASSES: Update class room number (example uses id=1)
-PUT http://localhost:5000/api/classes/1
+PUT https://e-dispy.onrender.com/api/classes/1
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
@@ -189,23 +190,23 @@ Authorization: Bearer {{token}}
 
 ###
 # CLASSES: Delete class id=1
-DELETE http://localhost:5000/api/classes/1
+DELETE https://e-dispy.onrender.com/api/classes/1
 Authorization: Bearer {{token}}
 
 # Expected: 200 OK / 204 No Content
 
 ###
 # TIMETABLE: Get full weekly timetable for class id 1
-GET http://localhost:5000/api/timetable/1
+GET https://e-dispy.onrender.com/api/timetable/1
 Authorization: Bearer {{token}}
 ### Get timetable for class 2
-GET http://localhost:5000/api/timetable/2
+GET https://e-dispy.onrender.com/api/timetable/2
 Authorization: Bearer {{token}}
 # Expected: 200 OK
 
 ###
 # TIMETABLE: Save timetable slots for Monday for class id 1
-POST http://localhost:5000/api/timetable/1
+POST https://e-dispy.onrender.com/api/timetable/1
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
@@ -220,28 +221,28 @@ Authorization: Bearer {{token}}
 
 ###
 # TIMETABLE: Get currently running period for class id 1
-GET http://localhost:5000/api/timetable/1/current-period
+GET https://e-dispy.onrender.com/api/timetable/1/current-period
 Authorization: Bearer {{token}}
 
 # Expected: 200 OK
 
 ###
 # TIMETABLE: Publish timetable to MQTT for class id 1
-POST http://localhost:5000/api/timetable/1/publish
+POST https://e-dispy.onrender.com/api/timetable/1/publish
 Authorization: Bearer {{token}}
 
 # Expected: 200 OK
 
 ###
 # PERIOD TIMINGS: Get all period timings
-GET http://localhost:5000/api/period-timings
+GET https://e-dispy.onrender.com/api/period-timings
 Authorization: Bearer {{token}}
 
 # Expected: 200 OK
 
 ###
 # NOTIFICATIONS: Send text notification to all classrooms
-POST http://localhost:5000/api/notifications
+POST https://e-dispy.onrender.com/api/notifications
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
@@ -255,7 +256,7 @@ Authorization: Bearer {{token}}
 
 ###
 # NOTIFICATIONS: Send notification to single class
-POST http://localhost:5000/api/notifications
+POST https://e-dispy.onrender.com/api/notifications
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
@@ -269,7 +270,7 @@ Authorization: Bearer {{token}}
 
 ###
 # NOTIFICATIONS: Send notification to entire department
-POST http://localhost:5000/api/notifications
+POST https://e-dispy.onrender.com/api/notifications
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
@@ -283,21 +284,21 @@ Authorization: Bearer {{token}}
 
 ###
 # NOTIFICATIONS: Get active notifications for class id 1
-GET http://localhost:5000/api/notifications/active/1
+GET https://e-dispy.onrender.com/api/notifications/active/1
 Authorization: Bearer {{token}}
 
 # Expected: 200 OK
 
 ###
 # NOTIFICATIONS: Deactivate notification id=1
-DELETE http://localhost:5000/api/notifications/1
+DELETE https://e-dispy.onrender.com/api/notifications/1
 Authorization: Bearer {{token}}
 
 # Expected: 200 OK
 
 ###
 # ANNOUNCEMENTS: Post exam announcement
-POST http://localhost:5000/api/announcements
+POST https://e-dispy.onrender.com/api/announcements
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
@@ -311,7 +312,7 @@ Authorization: Bearer {{token}}
 
 ###
 # ANNOUNCEMENTS: Post competition announcement
-POST http://localhost:5000/api/announcements
+POST https://e-dispy.onrender.com/api/announcements
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
@@ -325,21 +326,21 @@ Authorization: Bearer {{token}}
 
 ###
 # ANNOUNCEMENTS: Get all announcements
-GET http://localhost:5000/api/announcements
+GET https://e-dispy.onrender.com/api/announcements
 Authorization: Bearer {{token}}
 
 # Expected: 200 OK
 
 ###
 # ANNOUNCEMENTS: Get announcements for department id=1
-GET http://localhost:5000/api/announcements/1
+GET https://e-dispy.onrender.com/api/announcements/1
 Authorization: Bearer {{token}}
 
 # Expected: 200 OK
 
 ###
 # DEVICE: Send heartbeat from Raspberry Pi
-POST http://localhost:5000/api/device/heartbeat
+POST https://e-dispy.onrender.com/api/device/heartbeat
 Content-Type: application/json
 Authorization: Bearer {{token}}
 
@@ -352,7 +353,7 @@ Authorization: Bearer {{token}}
 
 ###
 # DEVICE: Get all device online/offline status
-GET http://localhost:5000/api/devices/status
+GET https://e-dispy.onrender.com/api/devices/status
 Authorization: Bearer {{token}}
 
 # Expected: 200 OK

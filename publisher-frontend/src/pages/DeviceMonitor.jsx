@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { devicesAPI } from "../utils/api";
-
+import { devicesAPI, classesAPI, noticeBoardsAPI } from "../utils/api";
+import Layout from "../components/Layout";
 const STATUS_META = {
   online:  { label: "Online",  color: "#16a34a", bg: "#dcfce7", dot: "#16a34a" },
   offline: { label: "Offline", color: "#dc2626", bg: "#fee2e2", dot: "#dc2626" },
@@ -11,12 +11,14 @@ const REFRESH_INTERVAL = 30;
 
 export default function DeviceMonitor() {
   const [devices, setDevices]           = useState([]);
+  const [classOptions, setClassOptions] = useState([]); // flat list [{id, display_name, department_name, room_number}]
+  const [boardOptions, setBoardOptions] = useState([]); // flat list of notice boards [{id, name, ...}]
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState(null);
   const [lastRefresh, setLastRefresh]   = useState(null);
   const [countdown, setCountdown]       = useState(REFRESH_INTERVAL);
   const [filterStatus, setFilterStatus] = useState("all");
-  const [filterDept, setFilterDept]     = useState("all");
+  const [filterAssign, setFilterAssign] = useState("all"); // all | assigned | unassigned
   const [search, setSearch]             = useState("");
 
   const fetchDevices = useCallback(async () => {
@@ -36,7 +38,32 @@ export default function DeviceMonitor() {
     }
   }, []);
 
-  useEffect(() => { fetchDevices(); }, [fetchDevices]);
+  const fetchClassOptions = useCallback(async () => {
+    try {
+      const res = await classesAPI.getAll();
+      const data = res.data || {};
+      const flat = [];
+      Object.values(data).forEach((years) => {
+        Object.values(years).forEach((list) => {
+          list.forEach((cls) => flat.push(cls));
+        });
+      });
+      setClassOptions(flat);
+    } catch {
+      // non-fatal — assignment dropdown will just be empty
+    }
+  }, []);
+
+  const fetchBoardOptions = useCallback(async () => {
+    try {
+      const res = await noticeBoardsAPI.getAll();
+      setBoardOptions(res.data || []);
+    } catch {
+      // non-fatal — assignment dropdown will just be empty
+    }
+  }, []);
+
+  useEffect(() => { fetchDevices(); fetchClassOptions(); fetchBoardOptions(); }, [fetchDevices, fetchClassOptions, fetchBoardOptions]);
 
   useEffect(() => {
     const tick = setInterval(() => {
@@ -48,22 +75,54 @@ export default function DeviceMonitor() {
     return () => clearInterval(tick);
   }, [fetchDevices]);
 
-  const departments = ["all", ...new Set(devices.map((d) => d.department || "Unknown"))];
+  const handleAssign = async (deviceId, payload) => {
+    try {
+      await devicesAPI.assign(deviceId, payload);
+      fetchDevices();
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to assign device.");
+    }
+  };
+
+  const handleUnassign = async (deviceId) => {
+    try {
+      await devicesAPI.unassign(deviceId);
+      fetchDevices();
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to unassign device.");
+    }
+  };
+
+  const handleRemove = async (deviceId) => {
+    if (!window.confirm("Remove this device permanently? It will re-register as a new device next time it boots.")) return;
+    try {
+      await devicesAPI.remove(deviceId);
+      fetchDevices();
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to remove device.");
+    }
+  };
 
   const filtered = devices.filter((d) => {
     const status      = d.is_online ? "online" : "offline";
     const matchStatus = filterStatus === "all" || status === filterStatus;
-    const matchDept   = filterDept === "all" || (d.department || "Unknown") === filterDept;
+    const isAssigned  = d.device_mode === "board" ? !!d.board_id : !!d.class_id;
+    const matchAssign = filterAssign === "all" ||
+      (filterAssign === "assigned" && isAssigned) ||
+      (filterAssign === "unassigned" && !isAssigned);
     const matchSearch = !search ||
-      d.room_name?.toLowerCase().includes(search.toLowerCase()) ||
+      d.friendly_name?.toLowerCase().includes(search.toLowerCase()) ||
       d.class_name?.toLowerCase().includes(search.toLowerCase()) ||
+      d.board_name?.toLowerCase().includes(search.toLowerCase()) ||
+      d.device_uid?.toLowerCase().includes(search.toLowerCase()) ||
       d.ip_address?.includes(search);
-    return matchStatus && matchDept && matchSearch;
+    return matchStatus && matchAssign && matchSearch;
   });
 
-  const total   = devices.length;
-  const online  = devices.filter((d) => d.is_online).length;
-  const offline = total - online;
+  const total      = devices.length;
+  const online     = devices.filter((d) => d.is_online).length;
+  const offline    = total - online;
+  const unassigned = devices.filter((d) => d.device_mode === "board" ? !d.board_id : !d.class_id).length;
 
   const formatTime = (isoString) => {
     if (!isoString) return "Never";
@@ -74,35 +133,32 @@ export default function DeviceMonitor() {
     return new Date(isoString).toLocaleDateString();
   };
 
-  const formatLastSeen = (isoString) => {
-    if (!isoString) return "—";
-    return new Date(isoString).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  };
-
   return (
+  <Layout pageTitle="🖥️ Device Monitor">
     <div style={s.page}>
 
-      {/* Page Title */}
-      <h2 style={s.pageTitle}>🖥️ Device Monitor</h2>
-
+      
       {/* Summary Cards */}
       <div style={s.summaryRow}>
-        <SummaryCard label="Total Devices" value={total}   color="#1e3a8a" />
-        <SummaryCard label="Online"         value={online}  color="#16a34a" />
-        <SummaryCard label="Offline"        value={offline} color="#dc2626" alert={offline > 0} />
-        <SummaryCard
-          label="Uptime"
-          value={total > 0 ? `${Math.round((online / total) * 100)}%` : "—"}
-          color={online / total >= 0.9 ? "#16a34a" : "#d97706"}
-        />
+        <SummaryCard label="Total Devices" value={total}      color="#1e3a8a" />
+        <SummaryCard label="Online"        value={online}     color="#16a34a" />
+        <SummaryCard label="Offline"       value={offline}    color="#dc2626" alert={offline > 0} />
+        <SummaryCard label="Unassigned"    value={unassigned} color="#d97706" alert={unassigned > 0} />
       </div>
+
+      {unassigned > 0 && (
+        <div style={s.infoBanner}>
+          ℹ️ {unassigned} device{unassigned > 1 ? "s" : ""} booted up and registered but {unassigned > 1 ? "haven't" : "hasn't"} been
+          assigned to a class or notice board yet. Assign one below so the screen starts showing it automatically — no login needed on the device again.
+        </div>
+      )}
 
       {/* Controls */}
       <div style={s.controlsCard}>
         <div style={s.controlsRow}>
           <input
             style={s.searchInput}
-            placeholder="🔍  Search by room, class or IP…"
+            placeholder="🔍  Search by name, class, device ID or IP…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -111,10 +167,10 @@ export default function DeviceMonitor() {
             <option value="online">Online</option>
             <option value="offline">Offline</option>
           </select>
-          <select style={s.select} value={filterDept} onChange={(e) => setFilterDept(e.target.value)}>
-            {departments.map((d) => (
-              <option key={d} value={d}>{d === "all" ? "All Departments" : d}</option>
-            ))}
+          <select style={s.select} value={filterAssign} onChange={(e) => setFilterAssign(e.target.value)}>
+            <option value="all">All Devices</option>
+            <option value="assigned">Assigned</option>
+            <option value="unassigned">Unassigned</option>
           </select>
           <button style={s.refreshBtn} onClick={fetchDevices} disabled={loading}>
             ↻ Refresh
@@ -142,21 +198,32 @@ export default function DeviceMonitor() {
         <div style={s.center}>
           <p style={{ fontSize: 48 }}>📺</p>
           <p style={{ color: "#6b7280", marginTop: 8 }}>
-            {devices.length === 0 ? "No devices registered yet." : "No devices match your filters."}
+            {devices.length === 0
+              ? "No devices have registered yet. Open the display screen once — it will appear here automatically."
+              : "No devices match your filters."}
           </p>
         </div>
       ) : (
         <div style={s.grid}>
           {filtered.map((device) => (
-            <DeviceCard key={device.id} device={device} formatLastSeen={formatLastSeen} />
+            <DeviceCard
+              key={device.id}
+              device={device}
+              classOptions={classOptions}
+              boardOptions={boardOptions}
+              formatTime={formatTime}
+              onAssign={handleAssign}
+              onUnassign={handleUnassign}
+              onRemove={handleRemove}
+            />
           ))}
         </div>
       )}
 
-    </div>
+        </div>
+  </Layout>
   );
 }
-
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
 function SummaryCard({ label, value, color, alert }) {
@@ -168,18 +235,39 @@ function SummaryCard({ label, value, color, alert }) {
   );
 }
 
-function DeviceCard({ device, formatLastSeen }) {
+function DeviceCard({ device, classOptions, boardOptions, formatTime, onAssign, onUnassign, onRemove }) {
   const status = device.is_online ? "online" : "offline";
   const meta   = STATUS_META[status];
-  const [expanded, setExpanded] = useState(false);
+  const mode   = device.device_mode === "board" ? "board" : "class"; // default to class for older records
+  const isAssigned = mode === "board" ? !!device.board_id : !!device.class_id;
+
+  const [expanded, setExpanded]   = useState(!isAssigned); // auto-expand unassigned devices
+  const [deviceMode, setDeviceMode] = useState(mode);
+  const [classId, setClassId]     = useState(device.class_id || "");
+  const [boardId, setBoardId]     = useState(device.board_id || "");
+  const [name, setName]           = useState(device.friendly_name || "");
+  const [saving, setSaving]       = useState(false);
+
+  const shortUid = device.device_uid ? `${device.device_uid.slice(0, 8)}…` : "—";
+
+  const handleSave = async () => {
+    setSaving(true);
+    await onAssign(device.id, {
+      device_mode: deviceMode,
+      class_id: deviceMode === "class" ? (classId ? Number(classId) : null) : undefined,
+      board_id: deviceMode === "board" ? (boardId ? Number(boardId) : null) : undefined,
+      friendly_name: name,
+    });
+    setSaving(false);
+  };
 
   return (
-    <div style={s.card} onClick={() => setExpanded((p) => !p)}>
+    <div style={{ ...s.card, borderColor: isAssigned ? "#e5e7eb" : "#fcd34d" }}>
       {/* Top row */}
       <div style={s.cardTop}>
         <div style={s.roomInfo}>
-          <span style={s.roomName}>{device.room_name || "Unnamed Room"}</span>
-          <span style={s.deptName}>{device.department || "—"}</span>
+          <span style={s.roomName}>{device.friendly_name || "Unnamed Display"}</span>
+          <span style={s.deptName} title={device.device_uid}>ID: {shortUid}</span>
         </div>
         <span style={{ ...s.badge, background: meta.bg, color: meta.color }}>
           <span style={{ ...s.dot, background: meta.dot }} />
@@ -187,31 +275,115 @@ function DeviceCard({ device, formatLastSeen }) {
         </span>
       </div>
 
-      {/* Class name */}
-      {device.class_name && (
-        <p style={s.className}>📋 {device.class_name}</p>
+      {mode === "board" ? (
+        isAssigned ? (
+          <p style={s.className}>📰 {device.board_name}</p>
+        ) : (
+          <p style={{ ...s.className, color: "#b45309" }}>⚠️ Not assigned to any notice board</p>
+        )
+      ) : (
+        isAssigned ? (
+          <p style={s.className}>📋 {device.class_name}{device.room_number ? ` · 📍 ${device.room_number}` : ""}</p>
+        ) : (
+          <p style={{ ...s.className, color: "#b45309" }}>⚠️ Not assigned to any class</p>
+        )
       )}
 
       {/* Quick meta */}
       <div style={s.metaRow}>
-        <span style={s.metaItem}>🕐 {formatLastSeen(device.last_seen)}</span>
+        <span style={s.metaItem}>🕐 {formatTime(device.last_seen)}</span>
         {device.ip_address && (
           <span style={s.metaItem}>🌐 {device.ip_address}</span>
         )}
       </div>
 
-      {/* Expanded */}
+      {/* Expanded — assignment controls */}
       {expanded && (
-        <div style={s.expanded}>
+        <div style={s.expanded} onClick={(e) => e.stopPropagation()}>
           <div style={s.divider} />
-          <DetailRow label="IP Address" value={device.ip_address || "—"} />
-          <DetailRow label="Device ID"  value={device.id} />
-          <DetailRow label="Last Seen"  value={device.last_seen ? new Date(device.last_seen).toLocaleString() : "Never"} />
-          <DetailRow label="Registered" value={device.created_at ? new Date(device.created_at).toLocaleDateString() : "—"} />
+
+          <label style={s.fieldLabel}>Friendly Name</label>
+          <input
+            style={s.fieldInput}
+            placeholder="e.g. CSE Block - Room 301"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+
+          <label style={s.fieldLabel}>Display Type</label>
+          <div style={s.modeToggle}>
+            <button
+              type="button"
+              style={deviceMode === "class" ? s.modeBtnActive : s.modeBtn}
+              onClick={() => setDeviceMode("class")}
+            >
+              📋 Class Timetable
+            </button>
+            <button
+              type="button"
+              style={deviceMode === "board" ? s.modeBtnActive : s.modeBtn}
+              onClick={() => setDeviceMode("board")}
+            >
+              📰 Notice Board
+            </button>
+          </div>
+
+          {deviceMode === "class" ? (
+            <>
+              <label style={s.fieldLabel}>Assigned Class</label>
+              <select
+                style={s.fieldInput}
+                value={classId}
+                onChange={(e) => setClassId(e.target.value)}
+              >
+                <option value="">— Unassigned —</option>
+                {classOptions.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.department_name} · {c.display_name}{c.room_number ? ` (${c.room_number})` : ""}
+                  </option>
+                ))}
+              </select>
+            </>
+          ) : (
+            <>
+              <label style={s.fieldLabel}>Assigned Notice Board</label>
+              <select
+                style={s.fieldInput}
+                value={boardId}
+                onChange={(e) => setBoardId(e.target.value)}
+              >
+                <option value="">— Unassigned —</option>
+                {boardOptions.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}{b.target_type === "department" ? "" : " (College-wide)"}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+
+          <div style={s.actionsRow}>
+            <button style={s.saveBtn} disabled={saving} onClick={handleSave}>
+              {saving ? "Saving…" : "💾 Save"}
+            </button>
+            {isAssigned && (
+              <button style={s.unassignBtn} onClick={() => onUnassign(device.id)}>
+                Unassign
+              </button>
+            )}
+            <button style={s.removeBtn} onClick={() => onRemove(device.id)}>
+              🗑 Remove
+            </button>
+          </div>
+
+          <DetailRow label="Device UID"  value={device.device_uid} />
+          <DetailRow label="Registered"  value={device.registered_at ? new Date(device.registered_at).toLocaleDateString() : "—"} />
         </div>
       )}
 
-      <div style={s.expandHint}>{expanded ? "▲ Less" : "▼ Details"}</div>
+      <div style={s.expandHint} onClick={() => setExpanded((p) => !p)}>
+        {expanded ? "▲ Less" : "▼ Manage"}
+      </div>
     </div>
   );
 }
@@ -331,6 +503,101 @@ const s = {
     padding: "12px 16px",
     marginBottom: 20,
     fontSize: 14,
+  },
+
+  infoBanner: {
+    background: "#fffbeb",
+    border: "1px solid #fcd34d",
+    color: "#92400e",
+    borderRadius: 8,
+    padding: "12px 16px",
+    marginBottom: 20,
+    fontSize: 13,
+    lineHeight: 1.5,
+  },
+
+  fieldLabel: {
+    display: "block",
+    fontSize: 11,
+    fontWeight: 600,
+    color: "#6b7280",
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
+    margin: "10px 0 4px",
+  },
+  modeToggle: {
+    display: "flex",
+    gap: 6,
+    marginBottom: 4,
+  },
+  modeBtn: {
+    flex: 1,
+    background: "#fff",
+    color: "#6b7280",
+    border: "1px solid #d1d5db",
+    borderRadius: 6,
+    padding: "8px 6px",
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  modeBtnActive: {
+    flex: 1,
+    background: "#eef2ff",
+    color: "#1e3a8a",
+    border: "1px solid #1e3a8a",
+    borderRadius: 6,
+    padding: "8px 6px",
+    fontSize: 12,
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  fieldInput: {
+    width: "100%",
+    border: "1px solid #d1d5db",
+    borderRadius: 6,
+    padding: "7px 10px",
+    fontSize: 13,
+    color: "#111827",
+    background: "#fff",
+    boxSizing: "border-box",
+  },
+  actionsRow: {
+    display: "flex",
+    gap: 8,
+    marginTop: 12,
+    marginBottom: 10,
+  },
+  saveBtn: {
+    flex: 1,
+    background: "#1e3a8a",
+    color: "#fff",
+    border: "none",
+    borderRadius: 6,
+    padding: "8px 0",
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  unassignBtn: {
+    background: "#fff",
+    color: "#d97706",
+    border: "1px solid #fcd34d",
+    borderRadius: 6,
+    padding: "8px 10px",
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  removeBtn: {
+    background: "#fff",
+    color: "#dc2626",
+    border: "1px solid #fca5a5",
+    borderRadius: 6,
+    padding: "8px 10px",
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: "pointer",
   },
 
   // Center / loading

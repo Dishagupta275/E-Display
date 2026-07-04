@@ -48,8 +48,7 @@ class User(db.Model):
     name          = db.Column(db.String(100), nullable=False)
     email         = db.Column(db.String(100), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    role          = db.Column(db.String(20), nullable=False)  # principal, hod, asst_hod, faculty, device
-    assigned_class_id = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=True)
+    role          = db.Column(db.String(20), nullable=False)  # principal, hod, asst_hod, faculty
     department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=True)
     is_active     = db.Column(db.Boolean, default=True)
     created_at    = db.Column(db.DateTime, default=datetime.utcnow)
@@ -78,8 +77,7 @@ class User(db.Model):
             'email':         self.email,
             'role':          self.role,
             'department_id': self.department_id,
-            'is_active':          self.is_active,
-            'assigned_class_id': self.assigned_class_id,
+            'is_active':     self.is_active,
             'created_at':    self.created_at.isoformat()
         }
 
@@ -269,7 +267,65 @@ class Announcement(db.Model):
             'created_at':        self.created_at.isoformat()
         }
 
+# ─────────────────────────────────────────
+# NOTICE BOARD
+# ─────────────────────────────────────────
+class NoticeBoard(db.Model):
+    __tablename__ = 'notice_boards'
 
+    id           = db.Column(db.Integer, primary_key=True)
+    name         = db.Column(db.String(200), nullable=False)
+    created_by   = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    target_type  = db.Column(db.String(20), nullable=False)  # all, department
+    target_id    = db.Column(db.Integer, nullable=True)       # dept_id if department
+    display_mode = db.Column(db.String(20), default='carousel')  # carousel, grid
+    carousel_time= db.Column(db.Integer, default=10)          # minutes per notice
+    is_active    = db.Column(db.Boolean, default=True)
+    created_at   = db.Column(db.DateTime, default=datetime.utcnow)
+
+    notices      = db.relationship('Notice', backref='board', lazy=True, cascade='all, delete-orphan')
+
+    def to_dict(self):
+        return {
+            'id':            self.id,
+            'name':          self.name,
+            'created_by':    self.created_by,
+            'target_type':   self.target_type,
+            'target_id':     self.target_id,
+            'display_mode':  self.display_mode,
+            'carousel_time': self.carousel_time,
+            'is_active':     self.is_active,
+            'notice_count':  len(self.notices),
+            'created_at':    self.created_at.isoformat()
+        }
+
+
+# ─────────────────────────────────────────
+# NOTICE
+# ─────────────────────────────────────────
+class Notice(db.Model):
+    __tablename__ = 'notices'
+
+    id           = db.Column(db.Integer, primary_key=True)
+    board_id     = db.Column(db.Integer, db.ForeignKey('notice_boards.id'), nullable=False)
+    title        = db.Column(db.String(200), nullable=False)
+    content      = db.Column(db.Text, nullable=True)
+    image_url    = db.Column(db.String(500), nullable=True)
+    order_number = db.Column(db.Integer, default=1)
+    is_active    = db.Column(db.Boolean, default=True)
+    created_at   = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id':           self.id,
+            'board_id':     self.board_id,
+            'title':        self.title,
+            'content':      self.content,
+            'image_url':    self.image_url,
+            'order_number': self.order_number,
+            'is_active':    self.is_active,
+            'created_at':   self.created_at.isoformat()
+        }
 # ─────────────────────────────────────────
 # EVENT  (display board events section)
 # ─────────────────────────────────────────
@@ -350,4 +406,42 @@ class DeviceStatus(db.Model):
             'is_online':  self.is_online,
             'last_seen':  self.last_seen.isoformat() if self.last_seen else None,
             'ip_address': self.ip_address
+        }
+
+
+# ─────────────────────────────────────────
+# DEVICE  (physical display — persisted via localStorage UUID)
+# ─────────────────────────────────────────
+class Device(db.Model):
+    __tablename__ = 'devices'
+
+    id            = db.Column(db.Integer, primary_key=True)
+    device_uid    = db.Column(db.String(64), unique=True, nullable=False)  # generated UUID, persisted on the display
+    friendly_name = db.Column(db.String(100), nullable=True)               # e.g. "CSE Block - Room 301"
+    class_id      = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=True)  # NULL = unassigned
+    board_id      = db.Column(db.Integer, db.ForeignKey('notice_boards.id'), nullable=True)  # NULL = no board assigned
+    device_mode   = db.Column(db.String(20), default='class')  # 'class' or 'board' — which one to actually show
+    is_online     = db.Column(db.Boolean, default=False)
+    last_seen     = db.Column(db.DateTime, nullable=True)
+    ip_address    = db.Column(db.String(50), nullable=True)
+    registered_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    class_ref = db.relationship('Class', backref='registered_devices')
+    board_ref = db.relationship('NoticeBoard', backref='registered_devices')
+
+    def to_dict(self):
+        return {
+            'id':            self.id,
+            'device_uid':    self.device_uid,
+            'friendly_name': self.friendly_name,
+            'class_id':      self.class_id,
+            'class_name':    self.class_ref.display_name if self.class_ref else None,
+            'room_number':   self.class_ref.room_number if self.class_ref else None,
+            'board_id':      self.board_id,
+            'board_name':    self.board_ref.name if self.board_ref else None,
+            'device_mode':   self.device_mode,
+            'is_online':     self.is_online,
+            'last_seen':     self.last_seen.isoformat() if self.last_seen else None,
+            'ip_address':    self.ip_address,
+            'registered_at': self.registered_at.isoformat()
         }

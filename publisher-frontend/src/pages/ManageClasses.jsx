@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { classesAPI } from "../utils/api";
+import { classesAPI, devicesAPI } from "../utils/api";
 import { useAuth } from "../context/AuthContext";
 import { usersAPI } from "../utils/api";
-const API_BASE = "https://e-display.onrender.com/api";
+import Layout from "../components/Layout";
+
 
 export default function ManageClasses() {
   const nav = useNavigate();
@@ -14,6 +15,7 @@ export default function ManageClasses() {
   const [error, setError]           = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [facultyList, setFacultyList] = useState([]);
+  const [devices, setDevices]       = useState([]); // ✅ new
 
   const [form, setForm] = useState({
     display_name:      "",
@@ -21,6 +23,7 @@ export default function ManageClasses() {
     room_number:       "",
     year:              "1",
     class_incharge_id: "",
+    device_id:         "", // ✅ new
   });
   const [formError, setFormError] = useState(null);
   const [creating, setCreating]   = useState(false);
@@ -30,7 +33,6 @@ export default function ManageClasses() {
   const canCreate = isHOD || isAsstHOD;
   const canDelete = isHOD;
 
-  // ── Fetch Classes ────────────────────────
   const fetchClasses = async () => {
     setLoading(true);
     try {
@@ -43,24 +45,34 @@ export default function ManageClasses() {
     }
   };
 
-  // ── Fetch Faculty ────────────────────────
   const fetchFaculty = async () => {
-  try {
-    const res = await usersAPI.getFaculty();
-    if (Array.isArray(res.data)) {
-      setFacultyList(res.data);
+    try {
+      const res = await usersAPI.getFaculty();
+      if (Array.isArray(res.data)) {
+        setFacultyList(res.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch faculty:", err);
     }
-  } catch (err) {
-    console.error("Failed to fetch faculty:", err);
-  }
-};
+  };
+
+  // ✅ new — fetch unassigned devices for the dropdown
+  const fetchDevices = async () => {
+    try {
+      const res = await devicesAPI.getStatus();
+      const unassigned = (res.data || []).filter((d) => !d.class_id);
+      setDevices(unassigned);
+    } catch (err) {
+      console.error("Failed to fetch devices:", err);
+    }
+  };
 
   useEffect(() => {
     fetchClasses();
     fetchFaculty();
+    fetchDevices(); // ✅ new
   }, []);
 
-  // ── Flatten Classes ──────────────────────
   const flatClasses = [];
   Object.entries(classes).forEach(([deptName, years]) => {
     Object.entries(years).forEach(([year, classList]) => {
@@ -68,7 +80,6 @@ export default function ManageClasses() {
     });
   });
 
-  // ── Create ───────────────────────────────
   const handleCreate = async () => {
     if (!form.display_name.trim()) { setFormError("Class name is required."); return; }
     if (!form.section.trim())      { setFormError("Section is required (e.g. A, B)."); return; }
@@ -76,15 +87,27 @@ export default function ManageClasses() {
     setCreating(true);
     setFormError(null);
     try {
-      await classesAPI.create({
+      const res = await classesAPI.create({
         display_name:      form.display_name.trim(),
         section:           form.section.trim().toUpperCase(),
         room_number:       form.room_number.trim(),
         year:              parseInt(form.year),
         class_incharge_id: form.class_incharge_id ? parseInt(form.class_incharge_id) : null,
       });
-      setForm({ display_name: "", section: "", room_number: "", year: "1", class_incharge_id: "" });
+
+      // ✅ new — assign the chosen device to the newly created class
+      const newClassId = res.data?.class?.id || res.data?.id;
+      if (form.device_id && newClassId) {
+        try {
+          await devicesAPI.assign(form.device_id, { class_id: newClassId });
+        } catch (err) {
+          console.error("Class created, but device assignment failed:", err);
+        }
+      }
+
+      setForm({ display_name: "", section: "", room_number: "", year: "1", class_incharge_id: "", device_id: "" });
       fetchClasses();
+      fetchDevices(); // refresh unassigned list
     } catch (err) {
       setFormError(err?.response?.data?.message || "Failed to create class.");
     } finally {
@@ -92,7 +115,6 @@ export default function ManageClasses() {
     }
   };
 
-  // ── Delete ───────────────────────────────
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this class? This will also remove its timetable.")) return;
     setDeletingId(id);
@@ -107,171 +129,183 @@ export default function ManageClasses() {
   };
 
   return (
-    <div style={s.page}>
-      <h2 style={s.pageTitle}> Manage Classes</h2>
+    <Layout pageTitle="🏫 Manage Classes">
+      <div style={s.wrapper}>
 
-      {canCreate && (
-        <div style={s.card}>
-          <p style={s.cardTitle}>Create New Class</p>
-          <div style={s.formGrid}>
+        {canCreate && (
+          <div style={s.card}>
+            <p style={s.cardTitle}>Create New Class</p>
+            <div style={s.formGrid}>
 
-            <div style={s.formGroup}>
-              <label style={s.label}>Class Name *</label>
-              <input
-                style={s.input}
-                placeholder="e.g. CSE-A, ECE-B"
-                value={form.display_name}
-                onChange={(e) => setForm((f) => ({ ...f, display_name: e.target.value }))}
-              />
+              <div style={s.formGroup}>
+                <label style={s.label}>Class Name *</label>
+                <input
+                  style={s.input}
+                  placeholder="e.g. CSE-A, ECE-B"
+                  value={form.display_name}
+                  onChange={(e) => setForm((f) => ({ ...f, display_name: e.target.value }))}
+                />
+              </div>
+
+              <div style={s.formGroup}>
+                <label style={s.label}>Section *</label>
+                <input
+                  style={s.input}
+                  placeholder="e.g. A, B, C"
+                  value={form.section}
+                  onChange={(e) => setForm((f) => ({ ...f, section: e.target.value }))}
+                />
+              </div>
+
+              <div style={s.formGroup}>
+                <label style={s.label}>Year *</label>
+                <select
+                  style={s.input}
+                  value={form.year}
+                  onChange={(e) => setForm((f) => ({ ...f, year: e.target.value }))}
+                >
+                  <option value="1">1st Year</option>
+                  <option value="2">2nd Year</option>
+                  <option value="3">3rd Year</option>
+                  <option value="4">4th Year</option>
+                </select>
+              </div>
+
+              <div style={s.formGroup}>
+                <label style={s.label}>Room Number</label>
+                <input
+                  style={s.input}
+                  placeholder="e.g. 301"
+                  value={form.room_number}
+                  onChange={(e) => setForm((f) => ({ ...f, room_number: e.target.value }))}
+                />
+              </div>
+
+              <div style={s.formGroup}>
+                <label style={s.label}>Class Incharge</label>
+                <select
+                  style={s.input}
+                  value={form.class_incharge_id}
+                  onChange={(e) => setForm((f) => ({ ...f, class_incharge_id: e.target.value }))}
+                >
+                  <option value="">— Select Class Incharge —</option>
+                  {facultyList.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* ✅ new — device assignment at creation time */}
+              <div style={s.formGroup}>
+                <label style={s.label}>Assign Display Device (optional)</label>
+                <select
+                  style={s.input}
+                  value={form.device_id}
+                  onChange={(e) => setForm((f) => ({ ...f, device_id: e.target.value }))}
+                >
+                  <option value="">— Assign later in Device Manager —</option>
+                  {devices.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.friendly_name || `Unnamed (${d.device_uid.slice(0, 8)}…)`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
             </div>
 
-            <div style={s.formGroup}>
-              <label style={s.label}>Section *</label>
-              <input
-                style={s.input}
-                placeholder="e.g. A, B, C"
-                value={form.section}
-                onChange={(e) => setForm((f) => ({ ...f, section: e.target.value }))}
-              />
-            </div>
+            {formError && <p style={s.errorText}>⚠️ {formError}</p>}
 
-            <div style={s.formGroup}>
-              <label style={s.label}>Year *</label>
-              <select
-                style={s.input}
-                value={form.year}
-                onChange={(e) => setForm((f) => ({ ...f, year: e.target.value }))}
-              >
-                <option value="1">1st Year</option>
-                <option value="2">2nd Year</option>
-                <option value="3">3rd Year</option>
-                <option value="4">4th Year</option>
-              </select>
-            </div>
-
-            <div style={s.formGroup}>
-              <label style={s.label}>Room Number</label>
-              <input
-                style={s.input}
-                placeholder="e.g. 301"
-                value={form.room_number}
-                onChange={(e) => setForm((f) => ({ ...f, room_number: e.target.value }))}
-              />
-            </div>
-
-            <div style={s.formGroup}>
-              <label style={s.label}>Class Incharge</label>
-              <select
-                style={s.input}
-                value={form.class_incharge_id}
-                onChange={(e) => setForm((f) => ({ ...f, class_incharge_id: e.target.value }))}
-              >
-                <option value="">— Select Class Incharge —</option>
-                {facultyList.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
+            <button style={s.primaryBtn} onClick={handleCreate} disabled={creating}>
+              {creating ? "Creating…" : "Create Class"}
+            </button>
           </div>
-
-          {formError && <p style={s.errorText}>⚠️ {formError}</p>}
-
-          <button style={s.primaryBtn} onClick={handleCreate} disabled={creating}>
-            {creating ? "Creating…" : "Create Class"}
-          </button>
-        </div>
-      )}
-
-      {error && <div style={s.errorBanner}>⚠️ {error}</div>}
-
-      <div style={s.card}>
-        <p style={s.cardTitle}>
-          Existing Classes
-          <span style={s.countBadge}>{flatClasses.length}</span>
-        </p>
-
-        {loading ? (
-          <div style={s.center}>
-            <div style={s.spinner} />
-            <p style={{ color: "#6b7280", marginTop: 12 }}>Loading classes…</p>
-          </div>
-        ) : flatClasses.length === 0 ? (
-          <div style={s.center}>
-            <p style={{ fontSize: 40 }}>🏫</p>
-            <p style={{ color: "#6b7280" }}>No classes yet. Create one above.</p>
-          </div>
-        ) : (
-          <table style={s.table}>
-            <thead>
-              <tr style={s.thead}>
-                <th style={s.th}>Class</th>
-                <th style={s.th}>Section</th>
-                <th style={s.th}>Department</th>
-                <th style={s.th}>Year</th>
-                <th style={s.th}>Room</th>
-                <th style={s.th}>Incharge</th>
-                <th style={s.th}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {flatClasses.map((cls) => (
-                <tr key={cls.id} style={s.tr}>
-                  <td style={s.td}><span style={s.className}>{cls.display_name}</span></td>
-                  <td style={s.td}>{cls.section || "—"}</td>
-                  <td style={s.td}><span style={s.deptBadge}>{cls.deptName}</span></td>
-                  <td style={s.td}>Year {cls.year}</td>
-                  <td style={s.td}>{cls.room_number || "—"}</td>
-                  <td style={s.td}>{cls.incharge_name || "—"}</td>
-                  <td style={s.td}>
-                    <div style={s.actions}>
-                      <button
-                        style={s.actionBtn}
-                        onClick={() => nav(`/timetable/${cls.id}/week`)}
-                      >
-                        🗓 Timetable
-                      </button>
-                      <button
-                        style={s.actionBtn}
-                        onClick={() => nav(`/class-setup/${cls.id}`)}
-                      >
-                        ⚙️ Setup
-                      </button>
-                      {canDelete && (
-                        <button
-                          style={s.deleteBtn}
-                          onClick={() => handleDelete(cls.id)}
-                          disabled={deletingId === cls.id}
-                        >
-                          🗑
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         )}
+
+        {error && <div style={s.errorBanner}>⚠️ {error}</div>}
+
+        <div style={s.card}>
+          <p style={s.cardTitle}>
+            Existing Classes
+            <span style={s.countBadge}>{flatClasses.length}</span>
+          </p>
+
+          {loading ? (
+            <div style={s.center}>
+              <div style={s.spinner} />
+              <p style={{ color: "#6b7280", marginTop: 12 }}>Loading classes…</p>
+            </div>
+          ) : flatClasses.length === 0 ? (
+            <div style={s.center}>
+              <p style={{ fontSize: 40 }}>🏫</p>
+              <p style={{ color: "#6b7280" }}>No classes yet. Create one above.</p>
+            </div>
+          ) : (
+            <table style={s.table}>
+              <thead>
+                <tr style={s.thead}>
+                  <th style={s.th}>Class</th>
+                  <th style={s.th}>Section</th>
+                  <th style={s.th}>Department</th>
+                  <th style={s.th}>Year</th>
+                  <th style={s.th}>Room</th>
+                  <th style={s.th}>Incharge</th>
+                  <th style={s.th}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {flatClasses.map((cls) => (
+                  <tr key={cls.id} style={s.tr}>
+                    <td style={s.td}><span style={s.className}>{cls.display_name}</span></td>
+                    <td style={s.td}>{cls.section || "—"}</td>
+                    <td style={s.td}><span style={s.deptBadge}>{cls.deptName}</span></td>
+                    <td style={s.td}>Year {cls.year}</td>
+                    <td style={s.td}>{cls.room_number || "—"}</td>
+                    <td style={s.td}>{cls.incharge_name || "—"}</td>
+                    <td style={s.td}>
+                      <div style={s.actions}>
+                        <button
+                          style={s.actionBtn}
+                          onClick={() => nav(`/timetable/${cls.id}/week`)}
+                        >
+                          🗓 Timetable
+                        </button>
+                        <button
+                          style={s.actionBtn}
+                          onClick={() => nav(`/class-setup/${cls.id}`)}
+                        >
+                          ⚙️ Setup
+                        </button>
+                        {canDelete && (
+                          <button
+                            style={s.deleteBtn}
+                            onClick={() => handleDelete(cls.id)}
+                            disabled={deletingId === cls.id}
+                          >
+                            🗑
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
       </div>
-    </div>
+    </Layout>
   );
 }
 
 const s = {
-  page: {
-    minHeight: "100vh",
-    background: "#f0f2f5",
-    padding: "28px 32px",
-    fontFamily: "'Segoe UI', Arial, sans-serif",
-  },
-  pageTitle: {
-    fontSize: 22,
-    fontWeight: 700,
-    color: "#1e3a8a",
-    marginBottom: 20,
+  wrapper: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 0,
   },
   card: {
     background: "#fff",

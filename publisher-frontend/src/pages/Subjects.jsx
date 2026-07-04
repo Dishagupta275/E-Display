@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { subjectsAPI, departmentsAPI } from "../utils/api";
 import { useAuth } from "../context/AuthContext";
-
+import Layout from "../components/Layout";
 export default function Subjects() {
   const nav = useNavigate();
   const { currentUser, logout } = useAuth();
@@ -95,45 +95,14 @@ export default function Subjects() {
 
   // ── RENDER ─────────────────────────────
   return (
+  <Layout pageTitle="📚 Subjects">
     <div style={styles.container}>
-
-      {/* HEADER */}
-      <div style={styles.header}>
-        <div>
-          <h1 style={styles.title}>E-DISPLAY</h1>
-          <p style={styles.subtitle}>Smart Classroom Information System</p>
-        </div>
-        <div style={styles.userInfo}>
-          <span style={styles.userName}>{currentUser?.name}</span>
-          <span style={styles.userRole}>{currentUser?.role?.toUpperCase()}</span>
-          <button onClick={logout} style={styles.logoutBtn}>Logout</button>
-        </div>
-      </div>
-
-      {/* NAV */}
-      <div style={styles.nav}>
-        {[
-          { label: "🏠 Dashboard", path: "/dashboard" },
-          { label: "🏫 Classes", path: "/classes" },
-          { label: "📚 Subjects", path: "/subjects" },
-          { label: "🗓 Timetable", path: "/timetable" },
-          { label: "📢 Notifications", path: "/notifications" },
-        ].map(item => (
-          <button
-            key={item.path}
-            onClick={() => nav(item.path)}
-            style={{
-              ...styles.navBtn,
-              ...(window.location.pathname === item.path ? styles.navBtnActive : {}),
-            }}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
+    
 
       <div style={styles.content}>
-        <h2 style={styles.pageTitle}>📚 Subjects</h2>
+       <div style={styles.topBar}>
+  
+</div>
 
         {/* FILTERS */}
         <div style={styles.card}>
@@ -257,7 +226,8 @@ export default function Subjects() {
         </div>
 
       </div>
-    </div>
+       </div>
+  </Layout>
   );
 }
 

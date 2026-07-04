@@ -1,6 +1,6 @@
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from models import db, User, Department, Class, Subject, TimetableSlot, PeriodTiming, DeviceStatus
+from models import db, User, Department, Class, Subject, TimetableSlot, PeriodTiming
 from datetime import datetime, timedelta
 from sqlalchemy import and_, or_
 from . import classes_bp
@@ -128,11 +128,24 @@ def get_class(class_id):
     """Get a single class by ID"""
     try:
         jid = get_jwt_identity()
-        user_id = int(jid) if jid is not None else None
 
         cls = Class.query.get(class_id)
         if not cls:
             return jsonify({'message': 'Class not found'}), 404
+
+        # Device-scoped token (auto-display, no human login) — already
+        # locked to this exact class via the admin's assignment, so it can
+        # read it directly without a User row to authorize against.
+        if isinstance(jid, str) and jid.startswith('device:'):
+            cls_dict = cls.to_dict()
+            if cls.class_incharge_id:
+                incharge = User.query.get(cls.class_incharge_id)
+                cls_dict['incharge_name'] = incharge.name if incharge else None
+            else:
+                cls_dict['incharge_name'] = None
+            return jsonify(cls_dict), 200
+
+        user_id = int(jid) if jid is not None else None
 
         user, error_msg, status_code = check_authorization(
             user_id, department_id=cls.department_id
@@ -391,82 +404,11 @@ def create_subject():
 # ─────────────────────────────────────────
 # DEVICE MONITORING
 # ─────────────────────────────────────────
+# NOTE: The old class-keyed `/devices/status` and `/device/heartbeat`
+# endpoints have been replaced by the device-registration system in
+# routes/devices.py (`/api/devices`, `/api/devices/identify`,
+# `/api/devices/<id>/assign`). A display now identifies itself by a
+# persistent device_uid instead of by class_id, so it can be reassigned
+# without any change on the Pi itself, and never needs manual login again.
 
-@classes_bp.route('/devices/status', methods=['GET'])
-@jwt_required()
-def get_device_status():
-    """Get online/offline status of all classroom displays"""
-    try:
-        jid = get_jwt_identity()
-        user_id = int(jid) if jid is not None else None
-        user = User.query.get(user_id)
-
-        if not user:
-            return jsonify({'message': 'User not found'}), 404
-
-        # Consider a device offline if last_seen > 2 minutes ago
-        cutoff = datetime.utcnow() - timedelta(minutes=2)
-
-        if user.role == 'principal':
-            devices = DeviceStatus.query.all()
-        else:
-            # Filter to user's department only
-            class_ids = [
-                cls.id for cls in Class.query.filter_by(
-                    department_id=user.department_id
-                ).all()
-            ]
-            devices = DeviceStatus.query.filter(
-                DeviceStatus.class_id.in_(class_ids)
-            ).all()
-
-        result = []
-        for device in devices:
-            d = device.to_dict()
-            # Mark as offline if last_seen is stale
-            if device.last_seen and device.last_seen < cutoff:
-                d['is_online'] = False
-            cls = Class.query.get(device.class_id)
-            d['display_name'] = cls.display_name if cls else 'Unknown'
-            result.append(d)
-
-        return jsonify(result), 200
-
-    except Exception as e:
-        return jsonify({'message': f'Error: {str(e)}'}), 500
-
-
-@classes_bp.route('/device/heartbeat', methods=['POST'])
-def device_heartbeat():
-    """
-    Called by Raspberry Pi displays every ~60 seconds to mark themselves online.
-    No JWT required — displays don't log in.
-    """
-    try:
-        data = request.get_json()
-
-        if not data or not data.get('class_id'):
-            return jsonify({'message': 'class_id is required'}), 400
-
-        device = DeviceStatus.query.filter_by(class_id=data['class_id']).first()
-
-        if device:
-            device.is_online = True
-            device.last_seen = datetime.utcnow()
-            device.ip_address = data.get('ip_address')
-        else:
-            device = DeviceStatus(
-                class_id=data['class_id'],
-                is_online=True,
-                last_seen=datetime.utcnow(),
-                ip_address=data.get('ip_address')
-            )
-            db.session.add(device)
-
-        db.session.commit()
-
-        return jsonify({'message': 'Heartbeat received'}), 200
-
-    except Exception as e:
-        db.session.rollback()
         return jsonify({'message': f'Error: {str(e)}'}), 500

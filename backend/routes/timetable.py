@@ -30,14 +30,20 @@ def get_timetable(class_id):
     """Get full weekly timetable for a class"""
     try:
         jid = get_jwt_identity()
-        user_id = int(jid) if jid is not None else None
-        user, error_msg, status_code = check_authorization(user_id, class_id=class_id)
-        if error_msg:
-            return jsonify({'message': error_msg}), status_code
-        
+
         class_obj = Class.query.get(class_id)
         if not class_obj:
             return jsonify({'message': 'Class not found'}), 404
+
+        # Device-scoped token (auto-display) — skip human authorization,
+        # the admin already locked this device to this exact class.
+        if isinstance(jid, str) and jid.startswith('device:'):
+            pass
+        else:
+            user_id = int(jid) if jid is not None else None
+            user, error_msg, status_code = check_authorization(user_id, class_id=class_id)
+            if error_msg:
+                return jsonify({'message': error_msg}), status_code
         
         # Get all slots for this class
         slots = TimetableSlot.query.filter_by(class_id=class_id).all()
@@ -166,12 +172,13 @@ def publish_timetable(class_id):
         
         # Publish to MQTT
         mqtt_publisher.connect()
-        mqtt_publisher.publish_timetable(class_obj.display_name, timetable)
-        
+        mqtt_ok = mqtt_publisher.publish_timetable(class_obj.display_name, timetable)
+
         return jsonify({
-            'message': 'Timetable published successfully',
+            'message': 'Timetable published successfully' if mqtt_ok else 'Timetable saved, but live update may be delayed (MQTT not connected)',
             'class': class_obj.display_name,
-            'topic': f'edisplay/timetable/{class_obj.display_name}'
+            'topic': f'edisplay/timetable/{class_obj.display_name}',
+            'live_update_sent': mqtt_ok
         }), 200
     
     except Exception as e:
@@ -184,23 +191,25 @@ def get_current_period(class_id):
     """Get current active period for a class"""
     try:
         jid = get_jwt_identity()
-        user_id = int(jid) if jid is not None else None
-        user, error_msg, status_code = check_authorization(user_id, class_id=class_id)
-        if error_msg:
-            return jsonify({'message': error_msg}), status_code
-        
+
         class_obj = Class.query.get(class_id)
         if not class_obj:
             return jsonify({'message': 'Class not found'}), 404
-        
-        # Get current time in IST (UTC+5:30)
-        from datetime import timezone, timedelta
-        IST = timezone(timedelta(hours=5, minutes=30))
-        now_ist = datetime.now(IST)
-        current_time = now_ist.time()
 
-        # Get today in IST (0-6 where 0 is Monday)
-        today_index = now_ist.weekday()
+        # Device-scoped token (auto-display) — skip human authorization.
+        if isinstance(jid, str) and jid.startswith('device:'):
+            pass
+        else:
+            user_id = int(jid) if jid is not None else None
+            user, error_msg, status_code = check_authorization(user_id, class_id=class_id)
+            if error_msg:
+                return jsonify({'message': error_msg}), status_code
+        
+        # Get current time
+        current_time = datetime.utcnow().time()
+        
+        # Get today (0-6 where 0 is Monday)
+        today_index = datetime.utcnow().weekday()
         days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
         today = days[today_index] if today_index < 6 else 'Saturday'
         

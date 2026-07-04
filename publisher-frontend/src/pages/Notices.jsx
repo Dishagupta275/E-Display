@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useToast } from "../components/Toast";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_BASE = import.meta.env.VITE_API_URL || "https://e-dispy.onrender.com";
 
 const c = {
   bg: "#f5f4f0", surface: "#ffffff", border: "#e2e0d8",
@@ -72,16 +72,10 @@ export default function Notices() {
       fetch(`${API_BASE}/api/classes`).then((r) => r.json()),
     ])
       .then(([noticeData, classData]) => {
-        // /api/classes returns { "CSE": { "1": [...], "2": [...] }, ... }
-        const flat = [];
-        if (classData && typeof classData === "object" && !Array.isArray(classData)) {
-          Object.values(classData).forEach(dept => {
-            Object.values(dept).forEach(yearArr => {
-              if (Array.isArray(yearArr)) yearArr.forEach(c => flat.push(c.display_name || c.name || c));
-            });
-          });
-        }
-        setClasses(flat);
+        const classList = Array.isArray(classData)
+          ? classData.map((c) => (typeof c === "string" ? c : c.name))
+          : [];
+        setClasses(classList);
         if (Array.isArray(noticeData) && noticeData.length > 0) {
           if (typeof noticeData[0] === "string") {
             setNotices(noticeData.map((t) => ({ text: t, target: "all" })));

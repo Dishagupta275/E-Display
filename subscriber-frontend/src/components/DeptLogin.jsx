@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import "./DeptLogin.css";
 
-const API = "https://e-display.onrender.com/api";
+
+const API = "https://e-dispy.onrender.com/api";
 
 export default function DeptLogin({ onLoginSuccess }) {
   const [departments, setDepartments] = useState([]);
@@ -56,7 +57,7 @@ export default function DeptLogin({ onLoginSuccess }) {
 
     try {
       // Step 1: Login
-      const loginRes = await fetch(`${API}/auth/login`, {
+      const loginRes = await fetch(`${API}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),

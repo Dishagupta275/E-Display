@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { usersAPI, departmentsAPI } from "../utils/api";
+import Layout from "../components/Layout";
 
 const ROLES = ["hod", "asst_hod", "faculty"];
 const ROLE_LABELS = { hod: "HOD", asst_hod: "Asst HOD", faculty: "Faculty" };
@@ -162,6 +163,7 @@ export default function Users() {
   };
 
   return (
+  <Layout pageTitle="👥 User Management">
     <div style={s.page}>
 
       <div style={s.topBar}>
@@ -413,7 +415,8 @@ export default function Users() {
         </div>
       )}
 
-    </div>
+        </div>
+  </Layout>
   );
 }
 

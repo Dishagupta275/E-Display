@@ -1,20 +1,41 @@
 import os
 from datetime import timedelta
+from dotenv import load_dotenv
 
+load_dotenv()
 
 class Config:
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        "mysql+pymysql://un5vkvgejivvhwbs:UaEp5v4hU7gO86PMHzjM@b1lqmscvxwjozqdwvlzz-mysql.services.clever-cloud.com:3306/b1lqmscvxwjozqdwvlzz"
-    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'your-secret-key-change-in-production-12345'
+    """Base configuration"""
+    DB_USER = os.environ.get('DB_USER')
+    DB_PASSWORD = os.environ.get('DB_PASSWORD')
+    DB_HOST = os.environ.get('DB_HOST')
+    DB_PORT = os.environ.get('DB_PORT')
+    DB_NAME = os.environ.get('DB_NAME')
+    SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    
+    # JWT Configuration
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'your-secret-key-change-in-production-12345'
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=7)
+    
+    # Upload Configuration
     UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
-    MAX_CONTENT_LENGTH = 16 * 1024 * 1024
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
+    
+    # CORS — all deployed and local frontend origins
     CORS_ORIGINS = [
         'http://localhost:5173',
         'http://localhost:5174',
+        'http://localhost:3000',
+        'http://127.0.0.1:5173',
+        'http://127.0.0.1:3000',
         'https://e-display-1.onrender.com',
-        'https://e-display-subscriber.onrender.com'
+        'https://e-display-1-w7jf.onrender.com'
+        'https://e-display-publisher.onrender.com'
+        
     ]
+
+
 class DevelopmentConfig(Config):
     """Development configuration"""
     DEBUG = True
