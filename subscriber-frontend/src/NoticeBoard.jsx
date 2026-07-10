@@ -247,7 +247,7 @@ export default function NoticeBoard({ board, notices: initialNotices, token, onB
 
       <div style={gs.footer}>
         <span>Notice board</span>
-        <span>Academic year 2025–2026</span>
+        <span>Academic year 2026–2027</span>
         <span style={{ color: "#e8791a" }}>Press F9 to exit</span>
       </div>
     </div>
@@ -264,8 +264,8 @@ const gs = {
   collegeName: { fontSize: 16, fontWeight: 500 },
   boardName: { fontSize: 11, opacity: 0.7, marginTop: 1 },
   headerRight: { marginLeft: "auto", textAlign: "right" },
-  clock: { fontSize: 13, fontWeight: 500 },
-  clockDate: { fontSize: 11, opacity: 0.7 },
+  clock: { fontSize: 22, fontWeight: 600 },
+  clockDate: { fontSize: 15, opacity: 0.8 },
 
   statusBar: { background: "#e8791a", color: "#fff", padding: "5px 20px", fontSize: 11, fontWeight: 500, display: "flex", justifyContent: "space-between" },
 
@@ -276,7 +276,7 @@ const gs = {
   noticeBody: { padding: "6px 10px 8px" },
   noticeMetaRow: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 },
   tag: { fontSize: 9, fontWeight: 500, padding: "1px 6px", borderRadius: 3 },
-  postedAt: { fontSize: 9, color: "#999" },
+  postedAt: { fontSize: 13, color: "#888" },
   noticeTitle: { fontSize: 11, fontWeight: 500, color: "#222", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" },
 
   empty: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#999", fontSize: 16 },
@@ -285,7 +285,7 @@ const gs = {
   carouselImg: { width: "100%", maxWidth: "100%", flex: 1, minHeight: 0, objectFit: "contain", borderRadius: 10, marginBottom: 14 },
   carouselText: { textAlign: "center", maxWidth: "90%", flexShrink: 0 },
   carouselTitle: { fontSize: 20, fontWeight: 500, color: "#222", margin: "0 0 4px" },
-  carouselPostedAt: { fontSize: 12, color: "#999" },
+  carouselPostedAt: { fontSize: 16, color: "#888" },
   dots: { display: "flex", gap: 8, marginTop: 16, justifyContent: "center" },
   dot: { width: 8, height: 8, borderRadius: "50%", cursor: "pointer", transition: "all 0.2s" },
   timerHint: { position: "absolute", bottom: 14, right: 20, fontSize: 11, color: "#aaa" },
@@ -296,7 +296,7 @@ const gs = {
   overlayImg: { maxWidth: "90vw", maxHeight: "65vh", objectFit: "contain", borderRadius: 10, marginBottom: 24 },
   overlayTextBlock: { textAlign: "center", maxWidth: "80vw" },
   overlayTitle: { fontSize: 24, fontWeight: 500, color: "#222", margin: "0 0 6px" },
-  overlayPostedAt: { fontSize: 13, color: "#999", marginBottom: 14 },
+  overlayPostedAt: { fontSize: 17, color: "#888", marginBottom: 14 },
   overlayContent: { fontSize: 16, color: "#444", lineHeight: 1.7, margin: 0 },
 
   footer: { background: "#0d0d0d", color: "#fff", display: "flex", justifyContent: "space-between", padding: "8px 20px", fontSize: 11, fontWeight: 500 },
