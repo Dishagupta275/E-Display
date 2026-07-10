@@ -2,6 +2,7 @@ from flask import request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import db, User, Event
 from datetime import datetime
+from decorators import require_permission
 from . import events_bp
 
 
@@ -16,14 +17,12 @@ def get_events():
 
 
 @events_bp.route('/events', methods=['POST'])
-@jwt_required()
+@require_permission('post_event')
 def create_event():
-    """Create a new event (Principal or HOD only)"""
+    """Create a new event"""
     try:
         jid = get_jwt_identity()
         user = User.query.get(int(jid))
-        if not user or user.role not in ['principal', 'hod']:
-            return jsonify({'message': 'Unauthorized'}), 403
 
         data = request.get_json()
         if not data.get('title'):
@@ -31,8 +30,11 @@ def create_event():
 
         event = Event(
             title=data['title'],
-            description=data.get('description'),
+            content=data.get('content'),
+            announcement_type=data.get('announcement_type', 'general'),
             event_date=datetime.fromisoformat(data['event_date']) if data.get('event_date') else None,
+            target_type=data.get('target_type', 'all'),
+            target_id=data.get('target_id'),
             posted_by=user.id,
             is_active=True
         )
@@ -46,15 +48,10 @@ def create_event():
 
 
 @events_bp.route('/events/<int:event_id>', methods=['DELETE'])
-@jwt_required()
+@require_permission('post_event')
 def delete_event(event_id):
     """Delete an event"""
     try:
-        jid = get_jwt_identity()
-        user = User.query.get(int(jid))
-        if not user or user.role not in ['principal', 'hod']:
-            return jsonify({'message': 'Unauthorized'}), 403
-
         event = Event.query.get(event_id)
         if not event:
             return jsonify({'message': 'Event not found'}), 404
@@ -66,4 +63,3 @@ def delete_event(event_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'message': f'Error: {str(e)}'}), 500
-   

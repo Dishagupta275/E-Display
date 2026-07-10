@@ -8,25 +8,32 @@ export default function Layout({ children, pageTitle }) {
   const { currentUser, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // Dashboard/Timetable have no permission gate — every logged-in role can see them.
   const ALL_NAV = [
-    { label: "Dashboard",    icon: "🏠", path: "/dashboard",    roles: ["principal","hod","asst_hod","faculty"] },
-    { label: "Classes",      icon: "🏫", path: "/classes",      roles: ["hod","asst_hod"] },
-    { label: "Subjects",     icon: "📚", path: "/subjects",     roles: ["hod","asst_hod"] },
-    { label: "Timetable",    icon: "🗓", path: "/timetable",    roles: ["principal","hod","asst_hod","faculty"] },
-    { label: "Notifications",icon: "📢", path: "/notifications",roles: ["principal","hod","asst_hod","faculty"] },
-    { label: "Departments",  icon: "🏛", path: "/departments",  roles: ["principal"] },
-    { label: "Users",        icon: "👥", path: "/users",        roles: ["principal"] },
-    { label: "Notice Boards",icon: "📋", path: "/notice-boards",roles: ["principal","hod"] },
-    { label: "Add Device",   icon: "📺", path: "/devices",      roles: ["principal","hod"] },
+    { label: "Dashboard",     icon: "🏠", path: "/dashboard",     permission: null },
+    { label: "Classes",       icon: "🏫", path: "/classes",       permission: "create_class" },
+    { label: "Subjects",      icon: "📚", path: "/subjects",      permission: "manage_subjects" },
+    { label: "Timetable",     icon: "🗓", path: "/timetable",     permission: null },
+    { label: "Notifications", icon: "📢", path: "/notifications", permission: "send_notification" },
+    { label: "Departments",   icon: "🏛", path: "/departments",   permission: "create_department" },
+    { label: "Users",         icon: "👥", path: "/users",         permission: "manage_users" },
+    { label: "Roles",         icon: "🔑", path: "/roles",         permission: "manage_roles" },
+    { label: "Notice Boards", icon: "📋", path: "/notice-boards", permission: "manage_noticeboards" },
+    { label: "Add Device",    icon: "📺", path: "/devices",       permission: "manage_devices" },
   ];
 
-  const navItems = ALL_NAV.filter(item => item.roles.includes(currentUser?.role));
+  const navItems = ALL_NAV.filter(
+    item => item.permission === null || (currentUser?.permissions || []).includes(item.permission)
+  );
 
+  // Role badge color — falls back to a neutral gray for any role name we
+  // don't have a specific color for (so newly-created roles like "TPO"
+  // still render fine without needing a code change here).
   const roleColors = {
-    hod:       { bg: "#ffd600", text: "#1a237e" },
-    asst_hod:  { bg: "#40c4ff", text: "#01579b" },
-    faculty:   { bg: "#69f0ae", text: "#1b5e20" },
-    principal: { bg: "#ff6e40", text: "#fff" },
+    Admin:     { bg: "#ff6e40", text: "#fff" },
+    HOD:       { bg: "#ffd600", text: "#1a237e" },
+    "Asst HOD":{ bg: "#40c4ff", text: "#01579b" },
+    Faculty:   { bg: "#69f0ae", text: "#1b5e20" },
   };
   const roleStyle = roleColors[currentUser?.role] || { bg: "#e0e0e0", text: "#333" };
 
@@ -273,7 +280,7 @@ export default function Layout({ children, pageTitle }) {
           position: fixed;
           inset: 0;
           background: rgba(0,0,0,0.45);
-          z-index: 210
+          z-index: 210;
         }
         .edl-drawer {
           position: fixed;
@@ -282,7 +289,7 @@ export default function Layout({ children, pageTitle }) {
           bottom: 0;
           width: 270px;
           background: #fff;
-          z-index: 220
+          z-index: 220;
           display: flex;
           flex-direction: column;
           box-shadow: 4px 0 24px rgba(0,0,0,0.2);
@@ -458,7 +465,7 @@ export default function Layout({ children, pageTitle }) {
                 className="edl-role-badge"
                 style={{ background: roleStyle.bg, color: roleStyle.text }}
               >
-                {currentUser?.role?.replace("_", " ").toUpperCase()}
+                {currentUser?.role?.toUpperCase()}
               </span>
             </div>
           </div>
@@ -523,7 +530,7 @@ export default function Layout({ children, pageTitle }) {
                 className="edl-role-badge"
                 style={{ background: roleStyle.bg, color: roleStyle.text }}
               >
-                {currentUser?.role?.replace("_", " ").toUpperCase()}
+                {currentUser?.role?.toUpperCase()}
               </span>
             </div>
           </div>

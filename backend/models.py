@@ -6,6 +6,62 @@ db = SQLAlchemy()
 
 
 # ─────────────────────────────────────────
+# ROLE  (dynamic — replaces hardcoded role strings)
+# ─────────────────────────────────────────
+class Role(db.Model):
+    __tablename__ = 'roles'
+
+    id             = db.Column(db.Integer, primary_key=True)
+    name           = db.Column(db.String(50), unique=True, nullable=False)   # e.g. "Admin", "TPO", "HOD"
+    description    = db.Column(db.String(255), nullable=True)
+    is_system_role = db.Column(db.Boolean, default=False)   # True for Admin — can't be edited/deleted
+    created_by     = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    created_at     = db.Column(db.DateTime, default=datetime.utcnow)
+
+    permissions = db.relationship('Permission', secondary='role_permissions', backref='roles')
+    users       = db.relationship('User', backref='role_obj', foreign_keys='User.role_id')
+
+    def to_dict(self, include_permissions=True):
+        data = {
+            'id':             self.id,
+            'name':           self.name,
+            'description':    self.description,
+            'is_system_role': self.is_system_role
+        }
+        if include_permissions:
+            data['permissions'] = [p.code for p in self.permissions]
+        return data
+
+
+# ─────────────────────────────────────────
+# PERMISSION  (master list — seeded once, admin picks from these)
+# ─────────────────────────────────────────
+class Permission(db.Model):
+    __tablename__ = 'permissions'
+
+    id       = db.Column(db.Integer, primary_key=True)
+    code     = db.Column(db.String(100), unique=True, nullable=False)   # e.g. "manage_users"
+    label    = db.Column(db.String(150), nullable=False)                # "Manage Users"
+    category = db.Column(db.String(50), nullable=True)
+
+    def to_dict(self):
+        return {'id': self.id, 'code': self.code, 'label': self.label, 'category': self.category}
+
+
+# ─────────────────────────────────────────
+# ROLE ↔ PERMISSION  (join table)
+# ─────────────────────────────────────────
+class RolePermission(db.Model):
+    __tablename__ = 'role_permissions'
+
+    id            = db.Column(db.Integer, primary_key=True)
+    role_id       = db.Column(db.Integer, db.ForeignKey('roles.id', ondelete='CASCADE'), nullable=False)
+    permission_id = db.Column(db.Integer, db.ForeignKey('permissions.id', ondelete='CASCADE'), nullable=False)
+
+    __table_args__ = (db.UniqueConstraint('role_id', 'permission_id', name='unique_role_permission'),)
+
+
+# ─────────────────────────────────────────
 # DEPARTMENT
 # ─────────────────────────────────────────
 class Department(db.Model):
@@ -48,7 +104,7 @@ class User(db.Model):
     name          = db.Column(db.String(100), nullable=False)
     email         = db.Column(db.String(100), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    role          = db.Column(db.String(20), nullable=False)  # principal, hod, asst_hod, faculty
+    role_id       = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=True)   # NEW — replaces old `role` string column
     department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=True)
     is_active     = db.Column(db.Boolean, default=True)
     created_at    = db.Column(db.DateTime, default=datetime.utcnow)
@@ -70,17 +126,46 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+    # ── BACKWARD-COMPAT PROPERTY ──────────────────────────────────
+    # Old route files (classes.py, timetable.py, notifications.py, announcements.py,
+    # noticeboards.py, devices.py, events.py) still check `user.role == 'principal'`
+    # style strings. This property keeps those working during the migration.
+    # Remove this once all route files are switched to @require_permission.
+    @property
+    def role(self):
+        if not self.role_obj:
+            return None
+        return self.role_obj.name.lower().replace(' ', '_')
+
+    def has_permission(self, code):
+        # Admin (is_system_role) always passes — even if a permission
+        # row is missing or wasn't attached during seeding.
+        if self.role_obj and self.role_obj.is_system_role:
+            return True
+        if not self.role_obj:
+            return False
+        return any(p.code == code for p in self.role_obj.permissions)
+    
     def to_dict(self):
+        if self.role_obj and self.role_obj.is_system_role:
+            # Admin bypasses permission checks entirely on the backend —
+            # so the frontend should see it as having every permission too,
+            # otherwise the nav/sidebar hides everything for Admin.
+            all_permissions = [p.code for p in Permission.query.all()]
+        else:
+            all_permissions = [p.code for p in self.role_obj.permissions] if self.role_obj else []
+
         return {
             'id':            self.id,
             'name':          self.name,
             'email':         self.email,
-            'role':          self.role,
+            'role_id':       self.role_id,
+            'role':          self.role_obj.name if self.role_obj else None,
+            'permissions':   all_permissions,
             'department_id': self.department_id,
             'is_active':     self.is_active,
             'created_at':    self.created_at.isoformat()
         }
-
 
 # ─────────────────────────────────────────
 # CLASS

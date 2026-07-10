@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import Layout from "../components/Layout";
 export default function Subjects() {
   const nav = useNavigate();
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, hasPermission } = useAuth();
 
   const [departments, setDepartments] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -22,7 +22,7 @@ export default function Subjects() {
   const [createError, setCreateError] = useState(null);
   const [createSuccess, setCreateSuccess] = useState(null);
 
-  const canManage = ["hod", "asst_hod"].includes(currentUser?.role);
+  const canManage = hasPermission("manage_subjects");
 
   // ── FETCH DEPARTMENTS ──────────────────
   useEffect(() => {
