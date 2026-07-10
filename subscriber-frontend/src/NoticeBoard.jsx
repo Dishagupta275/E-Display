@@ -140,9 +140,11 @@ export default function NoticeBoard({ board, notices: initialNotices, token, onB
                 <div style={gs.newBadge}>NEW</div>
               )}
               {notice.image_url ? (
-                <img src={buildImageUrl(notice.image_url)} alt={notice.title} style={gs.noticeImg} />
+                <div style={gs.noticeImgFrame}>
+                  <img src={buildImageUrl(notice.image_url)} alt={notice.title} style={gs.noticeImg} />
+                </div>
               ) : (
-                <div style={{ ...gs.noticeImg, background: cat.bg }} />
+                <div style={{ ...gs.noticeImgFrame, background: cat.bg }} />
               )}
               <div style={gs.noticeBody}>
                 <div style={gs.noticeMetaRow}>
@@ -272,7 +274,8 @@ const gs = {
   gridWrap: { display: "grid", gap: 12, padding: "14px 16px", flex: 1, overflow: "auto" },
   noticeCard: { background: "#fff", border: "1px solid #e0e0e0", borderRadius: 8, overflow: "hidden", cursor: "pointer", display: "flex", flexDirection: "column", position: "relative" },
   newBadge: { position: "absolute", top: 6, left: 6, background: "#e8452a", color: "#fff", fontSize: 9, fontWeight: 500, padding: "2px 6px", borderRadius: 3, zIndex: 1 },
-  noticeImg: { width: "100%", flex: 1, minHeight: 120, objectFit: "cover" },
+  noticeImgFrame: { width: "100%", aspectRatio: "4 / 3", background: "#f4f5f7", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  noticeImg: { width: "100%", height: "100%", objectFit: "contain" },
   noticeBody: { padding: "6px 10px 8px" },
   noticeMetaRow: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 },
   tag: { fontSize: 9, fontWeight: 500, padding: "1px 6px", borderRadius: 3 },
