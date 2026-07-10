@@ -3,7 +3,9 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import db, User, NoticeBoard, Notice, Department
 from datetime import datetime
 import os
+import json
 from werkzeug.utils import secure_filename
+from decorators import require_permission
 from . import noticeboards_bp
 
 
@@ -21,10 +23,9 @@ def get_notice_boards():
         if not user:
             return jsonify({'message': 'User not found'}), 404
 
-        if user.role == 'principal':
+        if user.department_id is None:
             boards = NoticeBoard.query.filter_by(is_active=True).all()
         else:
-            # HOD sees college-wide + their department boards
             boards = NoticeBoard.query.filter(
                 NoticeBoard.is_active == True,
                 db.or_(
@@ -43,7 +44,7 @@ def get_notice_boards():
 
 
 @noticeboards_bp.route('/notice-boards', methods=['POST'])
-@jwt_required()
+@require_permission('manage_noticeboards')
 def create_notice_board():
     """Create new notice board"""
     try:
@@ -52,16 +53,13 @@ def create_notice_board():
         if not user:
             return jsonify({'message': 'User not found'}), 404
 
-        if user.role not in ['principal', 'hod', 'asst_hod']:
-            return jsonify({'message': 'Unauthorized'}), 403
-
         data = request.get_json()
         if not data.get('name'):
             return jsonify({'message': 'Board name is required'}), 400
 
-        # Principal can create college-wide boards
-        # HOD can only create department boards
-        if user.role == 'principal':
+        # College-wide users (department_id = None, e.g. Admin) can create
+        # college-wide boards; department-scoped users create in their own dept
+        if user.department_id is None:
             target_type = data.get('target_type', 'all')
             target_id = data.get('target_id')
         else:
@@ -90,18 +88,13 @@ def create_notice_board():
 
 
 @noticeboards_bp.route('/notice-boards/<int:board_id>', methods=['PUT'])
-@jwt_required()
+@require_permission('manage_noticeboards')
 def update_notice_board(board_id):
     """Update notice board settings"""
     try:
-        jid = get_jwt_identity()
-        user = get_user(jid)
         board = NoticeBoard.query.get(board_id)
         if not board:
             return jsonify({'message': 'Board not found'}), 404
-
-        if user.role not in ['principal', 'hod', 'asst_hod']:
-            return jsonify({'message': 'Unauthorized'}), 403
 
         data = request.get_json()
         if 'name' in data:
@@ -120,18 +113,13 @@ def update_notice_board(board_id):
 
 
 @noticeboards_bp.route('/notice-boards/<int:board_id>', methods=['DELETE'])
-@jwt_required()
+@require_permission('delete_noticeboard')
 def delete_notice_board(board_id):
     """Delete notice board"""
     try:
-        jid = get_jwt_identity()
-        user = get_user(jid)
         board = NoticeBoard.query.get(board_id)
         if not board:
             return jsonify({'message': 'Board not found'}), 404
-
-        if user.role not in ['principal', 'hod']:
-            return jsonify({'message': 'Unauthorized'}), 403
 
         board.is_active = False
         db.session.commit()
@@ -152,8 +140,7 @@ def get_notices(board_id):
             return jsonify({'message': 'Board not found'}), 404
 
         notices = Notice.query.filter_by(
-            board_id=board_id,
-            is_active=True
+            board_id=board_id, is_active=True
         ).order_by(Notice.order_number).all()
 
         return jsonify({
@@ -166,27 +153,20 @@ def get_notices(board_id):
 
 
 @noticeboards_bp.route('/notice-boards/<int:board_id>/notices', methods=['POST'])
-@jwt_required()
+@require_permission('manage_noticeboards')
 def add_notice(board_id):
     """Add notice to board - supports image upload"""
     try:
-        jid = get_jwt_identity()
-        user = get_user(jid)
-        if not user or user.role not in ['principal', 'hod', 'asst_hod']:
-            return jsonify({'message': 'Unauthorized'}), 403
-
         board = NoticeBoard.query.get(board_id)
         if not board:
             return jsonify({'message': 'Board not found'}), 404
 
-        # Count existing notices
         existing_count = Notice.query.filter_by(
             board_id=board_id, is_active=True
         ).count()
 
         image_url = None
 
-        # Handle multipart form (image upload)
         if request.content_type and 'multipart' in request.content_type:
             title = request.form.get('title')
             content = request.form.get('content')
@@ -201,7 +181,6 @@ def add_notice(board_id):
                     file.save(upload_path)
                     image_url = f"/uploads/{filename}"
         else:
-            # JSON body
             data = request.get_json()
             title = data.get('title')
             content = data.get('content')
@@ -219,7 +198,6 @@ def add_notice(board_id):
         db.session.add(notice)
         db.session.commit()
 
-        # Publish updated board via MQTT
         _publish_board(board)
 
         return jsonify({
@@ -233,15 +211,10 @@ def add_notice(board_id):
 
 
 @noticeboards_bp.route('/notices/<int:notice_id>', methods=['DELETE'])
-@jwt_required()
+@require_permission('manage_noticeboards')
 def delete_notice(notice_id):
     """Delete a notice"""
     try:
-        jid = get_jwt_identity()
-        user = get_user(jid)
-        if not user or user.role not in ['principal', 'hod', 'asst_hod']:
-            return jsonify({'message': 'Unauthorized'}), 403
-
         notice = Notice.query.get(notice_id)
         if not notice:
             return jsonify({'message': 'Notice not found'}), 404
@@ -249,7 +222,6 @@ def delete_notice(notice_id):
         notice.is_active = False
         db.session.commit()
 
-        # Republish board after deletion
         board = NoticeBoard.query.get(notice.board_id)
         if board:
             _publish_board(board)
@@ -280,7 +252,6 @@ def publish_board(board_id):
 def _publish_board(board):
     """Internal function to publish board via MQTT"""
     try:
-        import json
         from mqtt_publisher import mqtt_publisher
         notices = Notice.query.filter_by(
             board_id=board.id, is_active=True
@@ -293,14 +264,10 @@ def _publish_board(board):
 
         topic = f"edisplay/noticeboard/{board.id}"
 
-        # Make sure we have a live connection before publishing
         if not mqtt_publisher.is_connected:
             mqtt_publisher.connect()
 
         if mqtt_publisher.client:
-            # ✅ FIXED: was str(payload) which produces a Python-repr string
-            # (single quotes, True/False/None) that JSON.parse() on the
-            # subscriber side cannot parse. json.dumps() produces valid JSON.
             mqtt_publisher.client.publish(
                 topic, json.dumps(payload), qos=1, retain=True
             )

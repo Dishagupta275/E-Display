@@ -6,14 +6,15 @@ import Layout from "../components/Layout";
 
 export default function Dashboard() {
   const nav = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, hasPermission } = useAuth();
   const [classes, setClasses] = useState({});
   const [stats, setStats] = useState({ departments: 0, classes: 0, devices: 0 });
   const [loading, setLoading] = useState(true);
 
-  const canManage   = ['principal', 'hod', 'asst_hod'].includes(currentUser?.role);
-  const isPrincipal = currentUser?.role === 'principal';
-  const isHOD       = currentUser?.role === 'hod';
+  const canManageClasses = hasPermission('create_class');
+  const canSeeDepartments = hasPermission('create_department');
+  const canSeeDevices = hasPermission('manage_devices');
+  const isDeptScoped = !!currentUser?.department_id;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -33,12 +34,12 @@ export default function Dashboard() {
           });
         });
 
-        let hodClasses = 0;
+        let ownDeptClasses = 0;
         if (currentUser?.department_id) {
           Object.values(classesData).forEach((dept) => {
             Object.values(dept).forEach((yearClasses) => {
               yearClasses.forEach((cls) => {
-                if (cls.department_id === currentUser.department_id) hodClasses++;
+                if (cls.department_id === currentUser.department_id) ownDeptClasses++;
               });
             });
           });
@@ -52,7 +53,7 @@ export default function Dashboard() {
 
         setStats({
           departments: deptsRes.data.length,
-          classes:     isPrincipal ? totalClasses : hodClasses,
+          classes:     isDeptScoped ? ownDeptClasses : totalClasses,
           devices:     onlineDevices,
         });
       } catch (err) {
@@ -71,14 +72,14 @@ export default function Dashboard() {
     });
   });
 
-  const visibleClasses = (isHOD || currentUser?.role === 'asst_hod')
+  const visibleClasses = isDeptScoped
     ? flatClasses.filter((c) => c.department_id === currentUser?.department_id)
     : flatClasses;
 
   const statCards = [
-    { label: "Departments",                         value: stats.departments, color: "#1a237e", bg: "#e8eaf6", icon: "🏢", show: isPrincipal },
-    { label: isPrincipal ? "Total Classes" : "My Classes", value: stats.classes, color: "#0d47a1", bg: "#e3f2fd", icon: "🏫", show: true },
-    { label: "Devices Online",                      value: stats.devices,     color: "#006064", bg: "#e0f7fa", icon: "🖥",  show: isPrincipal || isHOD },
+    { label: "Departments",                                     value: stats.departments, color: "#1a237e", bg: "#e8eaf6", icon: "🏢", show: canSeeDepartments },
+    { label: isDeptScoped ? "My Classes" : "Total Classes",      value: stats.classes,     color: "#0d47a1", bg: "#e3f2fd", icon: "🏫", show: true },
+    { label: "Devices Online",                                  value: stats.devices,     color: "#006064", bg: "#e0f7fa", icon: "🖥",  show: canSeeDevices },
   ].filter(s => s.show);
 
   return (
@@ -96,27 +97,19 @@ export default function Dashboard() {
       </div>
 
       {/* ── ROLE BANNER ── */}
-      {isPrincipal && (
-        <div style={{ ...s.roleBanner, background: "#e8eaf6", borderLeft: "4px solid #1a237e" }}>
-          <strong>Principal View</strong> — Full access to all departments and system settings.
-        </div>
-      )}
-      {(isHOD || currentUser?.role === 'asst_hod') && (
-        <div style={{ ...s.roleBanner, background: "#e3f2fd", borderLeft: "4px solid #0d47a1" }}>
-          <strong>{currentUser?.role === 'hod' ? 'HOD' : 'Assistant HOD'} View</strong> — Manage classes, subjects, timetables and notifications for your department.
-        </div>
-      )}
-      {currentUser?.role === 'faculty' && (
-        <div style={{ ...s.roleBanner, background: "#e8f5e9", borderLeft: "4px solid #2e7d32" }}>
-          <strong>Faculty View</strong> — View timetables and notifications. Contact your HOD for any changes.
-        </div>
-      )}
+      <div style={{ ...s.roleBanner, background: "#e8eaf6", borderLeft: "4px solid #1a237e" }}>
+        <strong>{currentUser?.role} View</strong> — {
+          !isDeptScoped
+            ? "Full access to all departments and system settings."
+            : "Manage classes, subjects, timetables and notifications for your department."
+        }
+      </div>
 
       {/* ── CLASSES SECTION ── */}
       <div style={s.section}>
         <div style={s.sectionHeader}>
           <h2 style={s.sectionTitle}>🏫 Classes</h2>
-          {canManage && (
+          {canManageClasses && (
             <button onClick={() => nav("/classes")} style={s.manageBtn}>
               Manage Classes →
             </button>
@@ -128,7 +121,7 @@ export default function Dashboard() {
         ) : visibleClasses.length === 0 ? (
           <div style={s.empty}>
             No classes found.{" "}
-            {canManage && (
+            {canManageClasses && (
               <button onClick={() => nav("/classes")} style={s.linkBtn}>
                 Create a class
               </button>
@@ -150,7 +143,7 @@ export default function Dashboard() {
                   <button onClick={() => nav(`/timetable/${cls.id}/week`)} style={s.actionBtn}>
                     🗓 Timetable
                   </button>
-                  {canManage && (
+                  {canManageClasses && (
                     <button onClick={() => nav("/notifications")} style={s.actionBtnOutline}>
                       📢 Notify
                     </button>
@@ -167,40 +160,19 @@ export default function Dashboard() {
 }
 
 const s = {
-  statsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-    gap: 16,
-    marginBottom: 20,
-  },
-  statCard: {
-    background: "#fff",
-    borderRadius: 10,
-    padding: "20px 16px",
-    textAlign: "center",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-  },
+  statsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 20 },
+  statCard: { background: "#fff", borderRadius: 10, padding: "20px 16px", textAlign: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" },
   statIcon:  { fontSize: 30, marginBottom: 8 },
   statValue: { fontSize: 34, fontWeight: 800, marginBottom: 4 },
   statLabel: { fontSize: 13, color: "#666" },
-
-  roleBanner: {
-    padding: "12px 18px",
-    borderRadius: 8,
-    fontSize: 13,
-    color: "#333",
-    marginBottom: 20,
-  },
-
+  roleBanner: { padding: "12px 18px", borderRadius: 8, fontSize: 13, color: "#333", marginBottom: 20 },
   section:       { marginTop: 4 },
   sectionHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
   sectionTitle:  { fontSize: 18, fontWeight: 700, color: "#1a237e", margin: 0 },
   manageBtn:     { padding: "8px 18px", background: "#1a237e", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer", fontSize: 13, fontWeight: 600 },
-
   loading: { textAlign: "center", padding: 40, color: "#666" },
   empty:   { textAlign: "center", padding: 40, color: "#666", background: "#fff", borderRadius: 10 },
   linkBtn: { background: "none", border: "none", color: "#0d47a1", cursor: "pointer", textDecoration: "underline", fontSize: 14 },
-
   classGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 16 },
   classCard: { background: "#fff", borderRadius: 10, padding: 18, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" },
   classCardTop: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },

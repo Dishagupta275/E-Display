@@ -1,25 +1,30 @@
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from models import db, User, Department, Class, Subject, TimetableSlot, PeriodTiming
+from models import db, User, Role, Department, Class, Subject, TimetableSlot, PeriodTiming
 from datetime import datetime, timedelta
 from sqlalchemy import and_, or_
+from decorators import require_permission
 from . import classes_bp
 
 
-def check_authorization(user_id, required_role=None, department_id=None):
-    """Check if user is authorized for the operation"""
+def get_current_user(user_id):
     user = User.query.get(user_id)
     if not user:
         return None, 'User not found', 404
-
-    if required_role and user.role not in required_role:
-        return None, 'Unauthorized access', 403
-
-    # Both hod and asst_hod are restricted to their own department
-    if department_id and user.role in ['hod', 'asst_hod'] and user.department_id != department_id:
-        return None, 'Can only access your own department', 403
-
+    if not user.is_active:
+        return None, 'User account is inactive', 403
     return user, None, None
+
+
+def check_department_scope(user, department_id):
+    """
+    Users tied to a specific department (department_id is set) are
+    restricted to that department. Admin and college-wide roles
+    (department_id = None, e.g. TPO, Placement Dept) can access all.
+    """
+    if department_id and user.department_id and user.department_id != department_id:
+        return False
+    return True
 
 
 # ─────────────────────────────────────────
@@ -38,16 +43,10 @@ def get_departments():
 
 
 @classes_bp.route('/departments', methods=['POST'])
-@jwt_required()
+@require_permission('create_department')
 def create_department():
-    """Create new department (Principal only)"""
+    """Create new department"""
     try:
-        jid = get_jwt_identity()
-        user_id = int(jid) if jid is not None else None
-        user, error_msg, status_code = check_authorization(user_id, required_role=['principal'])
-        if error_msg:
-            return jsonify({'message': error_msg}), status_code
-
         data = request.get_json()
         if not data.get('name'):
             return jsonify({'message': 'Department name is required'}), 400
@@ -80,18 +79,17 @@ def get_classes():
     try:
         jid = get_jwt_identity()
         user_id = int(jid) if jid is not None else None
-        user = User.query.get(user_id)
-
-        if not user:
-            return jsonify({'message': 'User not found'}), 404
+        user, error_msg, status_code = get_current_user(user_id)
+        if error_msg:
+            return jsonify({'message': error_msg}), status_code
 
         result = {}
 
-        if user.role == 'principal':
-            # Principal sees all departments
+        if user.department_id is None:
+            # Admin / college-wide roles see all departments
             departments = Department.query.all()
         else:
-            # HOD, Asst HOD, Faculty see only their department
+            # Department-scoped roles (HOD, Asst HOD, Faculty, etc.) see only their own
             departments = Department.query.filter_by(id=user.department_id).all()
 
         for dept in departments:
@@ -107,7 +105,6 @@ def get_classes():
 
                 cls_dict = cls.to_dict()
 
-                # Attach incharge name if available
                 if cls.class_incharge_id:
                     incharge = User.query.get(cls.class_incharge_id)
                     cls_dict['incharge_name'] = incharge.name if incharge else None
@@ -133,9 +130,7 @@ def get_class(class_id):
         if not cls:
             return jsonify({'message': 'Class not found'}), 404
 
-        # Device-scoped token (auto-display, no human login) — already
-        # locked to this exact class via the admin's assignment, so it can
-        # read it directly without a User row to authorize against.
+        # Device-scoped token (auto-display, no human login)
         if isinstance(jid, str) and jid.startswith('device:'):
             cls_dict = cls.to_dict()
             if cls.class_incharge_id:
@@ -146,16 +141,15 @@ def get_class(class_id):
             return jsonify(cls_dict), 200
 
         user_id = int(jid) if jid is not None else None
-
-        user, error_msg, status_code = check_authorization(
-            user_id, department_id=cls.department_id
-        )
+        user, error_msg, status_code = get_current_user(user_id)
         if error_msg:
             return jsonify({'message': error_msg}), status_code
 
+        if not check_department_scope(user, cls.department_id):
+            return jsonify({'message': 'Can only access your own department'}), 403
+
         cls_dict = cls.to_dict()
 
-        # Attach incharge name dynamically
         if cls.class_incharge_id:
             incharge = User.query.get(cls.class_incharge_id)
             cls_dict['incharge_name'] = incharge.name if incharge else None
@@ -169,16 +163,13 @@ def get_class(class_id):
 
 
 @classes_bp.route('/classes', methods=['POST'])
-@jwt_required()
+@require_permission('create_class')
 def create_class():
-    """Create a new class (HOD and Asst HOD only)"""
+    """Create a new class"""
     try:
         jid = get_jwt_identity()
         user_id = int(jid) if jid is not None else None
-        user, error_msg, status_code = check_authorization(
-            user_id,
-            required_role=['hod', 'asst_hod']
-        )
+        user, error_msg, status_code = get_current_user(user_id)
         if error_msg:
             return jsonify({'message': error_msg}), status_code
 
@@ -187,10 +178,12 @@ def create_class():
         if not all(k in data for k in ['year', 'section', 'display_name']):
             return jsonify({'message': 'Missing required fields: year, section, display_name'}), 400
 
-        # HOD/Asst HOD can only create classes in their own department
-        department_id = user.department_id
+        # Department-scoped users create in their own department;
+        # college-wide users (Admin, etc.) must specify department_id
+        department_id = user.department_id or data.get('department_id')
+        if not department_id:
+            return jsonify({'message': 'department_id is required'}), 400
 
-        # Check for duplicate class in same dept/year/section
         existing = Class.query.filter_by(
             department_id=department_id,
             year=data['year'],
@@ -221,24 +214,22 @@ def create_class():
 
 
 @classes_bp.route('/classes/<int:class_id>', methods=['PUT'])
-@jwt_required()
+@require_permission('create_class')
 def update_class(class_id):
-    """Update a class (HOD and Asst HOD only)"""
+    """Update a class"""
     try:
         jid = get_jwt_identity()
         user_id = int(jid) if jid is not None else None
+        user, error_msg, status_code = get_current_user(user_id)
+        if error_msg:
+            return jsonify({'message': error_msg}), status_code
 
         cls = Class.query.get(class_id)
         if not cls:
             return jsonify({'message': 'Class not found'}), 404
 
-        user, error_msg, status_code = check_authorization(
-            user_id,
-            required_role=['hod', 'asst_hod'],
-            department_id=cls.department_id
-        )
-        if error_msg:
-            return jsonify({'message': error_msg}), status_code
+        if not check_department_scope(user, cls.department_id):
+            return jsonify({'message': 'Can only access your own department'}), 403
 
         data = request.get_json()
 
@@ -266,24 +257,22 @@ def update_class(class_id):
 
 
 @classes_bp.route('/classes/<int:class_id>', methods=['DELETE'])
-@jwt_required()
+@require_permission('delete_class')
 def delete_class(class_id):
-    """Delete a class (HOD only, not Asst HOD)"""
+    """Delete a class"""
     try:
         jid = get_jwt_identity()
         user_id = int(jid) if jid is not None else None
+        user, error_msg, status_code = get_current_user(user_id)
+        if error_msg:
+            return jsonify({'message': error_msg}), status_code
 
         cls = Class.query.get(class_id)
         if not cls:
             return jsonify({'message': 'Class not found'}), 404
 
-        user, error_msg, status_code = check_authorization(
-            user_id,
-            required_role=['hod'],              # Asst HOD cannot delete
-            department_id=cls.department_id
-        )
-        if error_msg:
-            return jsonify({'message': error_msg}), status_code
+        if not check_department_scope(user, cls.department_id):
+            return jsonify({'message': 'Can only access your own department'}), 403
 
         db.session.delete(cls)
         db.session.commit()
@@ -306,21 +295,21 @@ def get_class_faculty(class_id):
     try:
         jid = get_jwt_identity()
         user_id = int(jid) if jid is not None else None
+        user, error_msg, status_code = get_current_user(user_id)
+        if error_msg:
+            return jsonify({'message': error_msg}), status_code
 
         cls = Class.query.get(class_id)
         if not cls:
             return jsonify({'message': 'Class not found'}), 404
 
-        user, error_msg, status_code = check_authorization(
-            user_id, department_id=cls.department_id
-        )
-        if error_msg:
-            return jsonify({'message': error_msg}), status_code
+        if not check_department_scope(user, cls.department_id):
+            return jsonify({'message': 'Can only access your own department'}), 403
 
-        faculty = User.query.filter_by(
-            department_id=cls.department_id,
-            role='faculty',
-            is_active=True
+        faculty = User.query.join(Role).filter(
+            Role.name == 'Faculty',
+            User.department_id == cls.department_id,
+            User.is_active == True
         ).all()
 
         return jsonify([f.to_dict() for f in faculty]), 200
@@ -340,16 +329,14 @@ def get_subjects(dept_id, year):
     try:
         jid = get_jwt_identity()
         user_id = int(jid) if jid is not None else None
-        user, error_msg, status_code = check_authorization(
-            user_id, department_id=dept_id
-        )
+        user, error_msg, status_code = get_current_user(user_id)
         if error_msg:
             return jsonify({'message': error_msg}), status_code
 
-        subjects = Subject.query.filter_by(
-            department_id=dept_id,
-            year=year
-        ).all()
+        if not check_department_scope(user, dept_id):
+            return jsonify({'message': 'Can only access your own department'}), 403
+
+        subjects = Subject.query.filter_by(department_id=dept_id, year=year).all()
 
         return jsonify([s.to_dict() for s in subjects]), 200
 
@@ -358,16 +345,13 @@ def get_subjects(dept_id, year):
 
 
 @classes_bp.route('/subjects', methods=['POST'])
-@jwt_required()
+@require_permission('manage_subjects')
 def create_subject():
-    """Create a new subject (HOD and Asst HOD only)"""
+    """Create a new subject"""
     try:
         jid = get_jwt_identity()
         user_id = int(jid) if jid is not None else None
-        user, error_msg, status_code = check_authorization(
-            user_id,
-            required_role=['hod', 'asst_hod']
-        )
+        user, error_msg, status_code = get_current_user(user_id)
         if error_msg:
             return jsonify({'message': error_msg}), status_code
 
@@ -376,8 +360,9 @@ def create_subject():
         if not all(k in data for k in ['name', 'code', 'year']):
             return jsonify({'message': 'Missing required fields: name, code, year'}), 400
 
-        # Force subject into user's own department
-        department_id = user.department_id
+        department_id = user.department_id or data.get('department_id')
+        if not department_id:
+            return jsonify({'message': 'department_id is required'}), 400
 
         if Subject.query.filter_by(code=data['code'], department_id=department_id).first():
             return jsonify({'message': 'Subject with this code already exists in your department'}), 400
@@ -398,17 +383,4 @@ def create_subject():
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({'message': f'Error: {str(e)}'}), 500
-
-
-# ─────────────────────────────────────────
-# DEVICE MONITORING
-# ─────────────────────────────────────────
-# NOTE: The old class-keyed `/devices/status` and `/device/heartbeat`
-# endpoints have been replaced by the device-registration system in
-# routes/devices.py (`/api/devices`, `/api/devices/identify`,
-# `/api/devices/<id>/assign`). A display now identifies itself by a
-# persistent device_uid instead of by class_id, so it can be reassigned
-# without any change on the Pi itself, and never needs manual login again.
-
         return jsonify({'message': f'Error: {str(e)}'}), 500

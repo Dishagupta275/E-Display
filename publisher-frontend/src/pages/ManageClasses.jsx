@@ -8,7 +8,7 @@ import Layout from "../components/Layout";
 
 export default function ManageClasses() {
   const nav = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, hasPermission } = useAuth();
 
   const [classes, setClasses]       = useState({});
   const [loading, setLoading]       = useState(true);
@@ -28,10 +28,8 @@ export default function ManageClasses() {
   const [formError, setFormError] = useState(null);
   const [creating, setCreating]   = useState(false);
 
-  const isHOD     = currentUser?.role === "hod";
-  const isAsstHOD = currentUser?.role === "asst_hod";
-  const canCreate = isHOD || isAsstHOD;
-  const canDelete = isHOD;
+  const canCreate = hasPermission("create_class");
+  const canDelete = hasPermission("delete_class");
 
   const fetchClasses = async () => {
     setLoading(true);

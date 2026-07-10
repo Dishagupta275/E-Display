@@ -2,6 +2,7 @@ from flask import request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token
 from models import db, User, Class, Device, NoticeBoard, Notice
 from datetime import datetime, timedelta
+from decorators import require_permission
 from . import devices_bp
 
 
@@ -11,16 +12,6 @@ from . import devices_bp
 # ─────────────────────────────────────────
 @devices_bp.route('/devices/identify', methods=['POST'])
 def identify_device():
-    """
-    Body: { "device_uid": "<uuid generated/stored on the display>" }
-
-    - If device_uid is new -> create it as UNASSIGNED, return registered: false
-    - If device_uid exists but has no class_id AND no board_id -> still unassigned
-    - If device_uid exists and device_mode == 'class' with a class_id -> return the
-      full class object so the display can render the timetable, no login needed.
-    - If device_uid exists and device_mode == 'board' with a board_id -> return the
-      full board + notices so the display can render the notice board, no login needed.
-    """
     try:
         data = request.get_json() or {}
         device_uid = data.get('device_uid')
@@ -43,20 +34,17 @@ def identify_device():
             db.session.commit()
             return jsonify({'registered': False, 'message': 'Device registered as unassigned. Ask admin to assign a class or notice board.'}), 200
 
-        # Existing device — refresh heartbeat info
         device.is_online = True
         device.last_seen = datetime.utcnow()
         device.ip_address = ip_address
         db.session.commit()
 
-        # ── Notice board mode ──
         if device.device_mode == 'board':
             if not device.board_id:
                 return jsonify({'registered': False, 'message': 'Device is registered but not yet assigned to a notice board.'}), 200
 
             board = NoticeBoard.query.get(device.board_id)
             if not board or not board.is_active:
-                # Board was deleted/deactivated — fall back to unassigned state
                 return jsonify({'registered': False, 'message': 'Assigned notice board no longer exists.'}), 200
 
             notices = Notice.query.filter_by(
@@ -77,17 +65,13 @@ def identify_device():
                 'access_token': device_token
             }), 200
 
-        # ── Class / timetable mode (default) ──
         if not device.class_id:
             return jsonify({'registered': False, 'message': 'Device is registered but not yet assigned to a class.'}), 200
 
         cls = Class.query.get(device.class_id)
         if not cls:
-            # Class was deleted — fall back to unassigned state
             return jsonify({'registered': False, 'message': 'Assigned class no longer exists.'}), 200
 
-        # Device-scoped token: read-only in practice (display only ever calls
-        # GET endpoints), long-lived so the Pi never needs to "log in" again.
         device_token = create_access_token(
             identity=f"device:{device.id}",
             expires_delta=timedelta(days=3650)
@@ -110,21 +94,17 @@ def identify_device():
 # LIST DEVICES  (Publisher → DeviceMonitor page)
 # ─────────────────────────────────────────
 @devices_bp.route('/devices', methods=['GET'])
-@jwt_required()
+@require_permission('manage_devices')
 def list_devices():
     try:
         jid = get_jwt_identity()
         user = User.query.get(int(jid)) if jid is not None else None
-        if not user:
-            return jsonify({'message': 'User not found'}), 404
 
         cutoff = datetime.utcnow() - timedelta(minutes=2)
 
-        if user.role == 'principal':
+        if user.department_id is None:
             devices = Device.query.order_by(Device.registered_at.desc()).all()
         else:
-            # hod / asst_hod / faculty -> only devices assigned to their dept's classes,
-            # plus any still-unassigned devices (so they can claim one for their room).
             class_ids = [c.id for c in Class.query.filter_by(department_id=user.department_id).all()]
             devices = Device.query.filter(
                 (Device.class_id.in_(class_ids)) | (Device.class_id.is_(None))
@@ -147,25 +127,11 @@ def list_devices():
 # ASSIGN DEVICE TO CLASS  (Publisher action)
 # ─────────────────────────────────────────
 @devices_bp.route('/devices/<int:device_id>/assign', methods=['PUT'])
-@jwt_required()
+@require_permission('manage_devices')
 def assign_device(device_id):
-    """
-    Body can include:
-      - class_id (int or null) + device_mode='class'  -> assign to a classroom timetable
-      - board_id (int or null) + device_mode='board'  -> assign to a notice board
-      - friendly_name (optional, either mode)
-
-    A device shows exactly one thing at a time, controlled by device_mode.
-    Assigning one mode does not erase the other mode's saved assignment —
-    switching device_mode back and forth remembers the last class/board picked.
-    """
     try:
         jid = get_jwt_identity()
         user = User.query.get(int(jid)) if jid is not None else None
-        if not user:
-            return jsonify({'message': 'User not found'}), 404
-        if user.role not in ['principal', 'hod', 'asst_hod']:
-            return jsonify({'message': 'Unauthorized'}), 403
 
         device = Device.query.get(device_id)
         if not device:
@@ -181,7 +147,7 @@ def assign_device(device_id):
                 cls = Class.query.get(class_id)
                 if not cls:
                     return jsonify({'message': 'Class not found'}), 404
-                if user.role in ['hod', 'asst_hod'] and cls.department_id != user.department_id:
+                if user.department_id and cls.department_id != user.department_id:
                     return jsonify({'message': 'Can only assign classes in your own department'}), 403
             device.class_id = class_id
 
@@ -211,7 +177,7 @@ def assign_device(device_id):
 # UNASSIGN / DELETE DEVICE
 # ─────────────────────────────────────────
 @devices_bp.route('/devices/<int:device_id>/unassign', methods=['PUT'])
-@jwt_required()
+@require_permission('manage_devices')
 def unassign_device(device_id):
     try:
         device = Device.query.get(device_id)
@@ -227,14 +193,9 @@ def unassign_device(device_id):
 
 
 @devices_bp.route('/devices/<int:device_id>', methods=['DELETE'])
-@jwt_required()
+@require_permission('delete_device')
 def delete_device(device_id):
     try:
-        jid = get_jwt_identity()
-        user = User.query.get(int(jid)) if jid is not None else None
-        if not user or user.role != 'principal':
-            return jsonify({'message': 'Only principal can remove devices'}), 403
-
         device = Device.query.get(device_id)
         if not device:
             return jsonify({'message': 'Device not found'}), 404

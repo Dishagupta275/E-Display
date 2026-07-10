@@ -9,7 +9,7 @@ const MESSAGE_MAX = 280;
 
 export default function Notifications() {
   const nav = useNavigate();
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, hasPermission } = useAuth();
 
   const [classes, setClasses]             = useState([]);
   const [departments, setDepartments]     = useState([]);
@@ -18,6 +18,8 @@ export default function Notifications() {
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [targetType, setTargetType]       = useState("all");
   const [targetId, setTargetId]           = useState("");
+  const [classDept, setClassDept]         = useState(""); // department filter, class-target flow only
+  const [classYear, setClassYear]         = useState(""); // year filter, class-target flow only
   const [notifType, setNotifType]         = useState("text");
   const [title, setTitle]                 = useState("");
   const [message, setMessage]             = useState("");
@@ -28,19 +30,52 @@ export default function Notifications() {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [confirmSend, setConfirmSend]     = useState(false);
 
-  const isPrincipal = currentUser?.role === "principal";
-  const isHOD       = currentUser?.role === "hod";
-  const isAsstHOD   = currentUser?.role === "asst_hod";
-  const canCompose  = isPrincipal || isHOD;
+  const canCompose = hasPermission("send_notification");
+  const isDeptScoped = !!currentUser?.department_id;
 
-  // For HOD/asst_hod, lock target to their department's classes only
-  const visibleClasses = (isHOD || isAsstHOD)
+  // Roles are dynamic/custom (see ManageRoles), so we can't check fixed
+  // role-name strings like "HOD" or "Principal". Instead we derive scope
+  // from department_id: department-scoped users are locked to their dept
+  // (isHOD-equivalent), college-wide users are not (isPrincipal-equivalent).
+  // Delete access mirrors the backend, which gates delete under the same
+  // "send_notification" permission as sending — so we reuse canCompose
+  // instead of inventing a separate role check.
+  const isHOD = isDeptScoped;
+  const isAsstHOD = false; // no separate read-only-department role exists yet
+  const isPrincipal = !isDeptScoped && canCompose;
+
+  // Department-scoped roles (HOD, Asst HOD, etc.) are locked to their own
+  // department's classes; college-wide roles (Admin, TPO, ...) see everything.
+  const visibleClasses = isDeptScoped
     ? classes.filter((c) => c.department_id === currentUser?.department_id)
     : classes;
 
-  const visibleDepartments = (isHOD || isAsstHOD)
+  const visibleDepartments = isDeptScoped
     ? departments.filter((d) => d.id === currentUser?.department_id)
     : departments;
+
+  // Cascading class picker: Department -> Year -> Class (section).
+  // Dept-scoped users skip the department step (it's fixed to their own).
+  const classFilterDeptId = isDeptScoped ? currentUser?.department_id : (classDept ? parseInt(classDept) : null);
+
+  const classesInDept = classFilterDeptId
+    ? visibleClasses.filter((c) => c.department_id === classFilterDeptId)
+    : visibleClasses;
+
+  // Only years that actually have classes in the chosen department, sorted ascending.
+  const availableYears = Array.from(new Set(classesInDept.map((c) => c.year))).sort((a, b) => a - b);
+
+  const classesForYear = classYear
+    ? classesInDept.filter((c) => c.year === parseInt(classYear))
+    : classesInDept;
+
+  // If a department/year is picked and it only leaves one class, auto-select it —
+  // same convenience pattern already used for the single-department HOD case below.
+  useEffect(() => {
+    if (targetType === "class" && classYear && classesForYear.length === 1) {
+      setTargetId(String(classesForYear[0].id));
+    }
+  }, [targetType, classYear, classesForYear]);
 
   // HOD/AsstHOD only ever have one department to pick from — auto-select it
   // instead of making them choose from a dropdown with a single option.
@@ -344,7 +379,7 @@ export default function Notifications() {
                       .map((opt) => (
                         <button
                           key={opt.value}
-                          onClick={() => { setTargetType(opt.value); setTargetId(""); }}
+                          onClick={() => { setTargetType(opt.value); setTargetId(""); setClassDept(""); setClassYear(""); }}
                           style={{
                             ...s.targetBtn,
                             background: targetType === opt.value ? "#1a237e" : "#f0f4f8",
@@ -383,25 +418,78 @@ export default function Notifications() {
                   </div>
                 )}
 
-                {/* Class selector */}
+                {/* Class selector — cascades Department -> Year -> Class so you're
+                    never scrolling through every section in the college at once */}
                 {targetType === "class" && (
-                  <div style={s.formGroup}>
-                    <label style={s.label}>Select Class</label>
+                  <>
                     {visibleClasses.length === 0 ? (
-                      <div style={s.emptyInline}>No classes found for your department.</div>
+                      <div style={s.formGroup}>
+                        <label style={s.label}>Select Class</label>
+                        <div style={s.emptyInline}>No classes found for your department.</div>
+                      </div>
                     ) : (
-                      <select
-                        style={s.input}
-                        value={targetId}
-                        onChange={(e) => setTargetId(e.target.value)}
-                      >
-                        <option value="">— Select Class —</option>
-                        {visibleClasses.map((cls) => (
-                          <option key={cls.id} value={cls.id}>{cls.display_name}</option>
-                        ))}
-                      </select>
+                      <>
+                        {/* Department step — skipped for dept-scoped users, they only have one */}
+                        {!isDeptScoped && (
+                          <div style={s.formGroup}>
+                            <label style={s.label}>Department</label>
+                            <select
+                              style={s.input}
+                              value={classDept}
+                              onChange={(e) => { setClassDept(e.target.value); setClassYear(""); setTargetId(""); }}
+                            >
+                              <option value="">— Select Department —</option>
+                              {visibleDepartments.map((d) => (
+                                <option key={d.id} value={d.id}>{d.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+
+                        {/* Year step — only shows once a department is chosen (or is implicit) */}
+                        {(isDeptScoped || classDept) && (
+                          <div style={s.formGroup}>
+                            <label style={s.label}>Year</label>
+                            {availableYears.length === 0 ? (
+                              <div style={s.emptyInline}>No classes found for this department.</div>
+                            ) : (
+                              <select
+                                style={s.input}
+                                value={classYear}
+                                onChange={(e) => { setClassYear(e.target.value); setTargetId(""); }}
+                              >
+                                <option value="">— Select Year —</option>
+                                {availableYears.map((y) => (
+                                  <option key={y} value={y}>{y === 1 ? "1st" : y === 2 ? "2nd" : y === 3 ? "3rd" : `${y}th`} Year</option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Class/section step — only shows once a year is chosen */}
+                        {(isDeptScoped || classDept) && classYear && (
+                          <div style={s.formGroup}>
+                            <label style={s.label}>Section</label>
+                            {classesForYear.length === 0 ? (
+                              <div style={s.emptyInline}>No sections found for this year.</div>
+                            ) : (
+                              <select
+                                style={s.input}
+                                value={targetId}
+                                onChange={(e) => setTargetId(e.target.value)}
+                              >
+                                <option value="">— Select Section —</option>
+                                {classesForYear.map((cls) => (
+                                  <option key={cls.id} value={cls.id}>{cls.display_name}</option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+                        )}
+                      </>
                     )}
-                  </div>
+                  </>
                 )}
 
                 {/* Notification type */}

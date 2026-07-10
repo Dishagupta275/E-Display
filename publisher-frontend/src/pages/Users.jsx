@@ -1,21 +1,26 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
-import { usersAPI, departmentsAPI } from "../utils/api";
+import { usersAPI, departmentsAPI, rolesAPI } from "../utils/api";
 import Layout from "../components/Layout";
 
-const ROLES = ["hod", "asst_hod", "faculty"];
-const ROLE_LABELS = { hod: "HOD", asst_hod: "Asst HOD", faculty: "Faculty" };
-const ROLE_COLORS = {
-  hod:      { bg: "#dbeafe", color: "#1e40af" },
-  asst_hod: { bg: "#ede9fe", color: "#6d28d9" },
-  faculty:  { bg: "#dcfce7", color: "#15803d" },
-};
+// Fallback color palette for role badges — cycles through these for any
+// role name, so newly created roles (TPO, Placement Dept, etc.) still get
+// a distinct color without needing code changes.
+const BADGE_PALETTE = [
+  { bg: "#dbeafe", color: "#1e40af" },
+  { bg: "#ede9fe", color: "#6d28d9" },
+  { bg: "#dcfce7", color: "#15803d" },
+  { bg: "#fef3c7", color: "#92400e" },
+  { bg: "#fce7f3", color: "#9d174d" },
+  { bg: "#e0f2fe", color: "#075985" },
+];
 
 export default function Users() {
   const { currentUser } = useAuth();
 
   const [users, setUsers]             = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [roles, setRoles]             = useState([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState(null);
 
@@ -24,7 +29,7 @@ export default function Users() {
   const [search, setSearch]           = useState("");
 
   const [form, setForm] = useState({
-    name: "", email: "", password: "", role: "faculty", department_id: "",
+    name: "", email: "", password: "", role_id: "", department_id: "",
   });
   const [formError, setFormError] = useState(null);
   const [creating, setCreating]   = useState(false);
@@ -35,7 +40,6 @@ export default function Users() {
   const [editError, setEditError] = useState(null);
   const [saving, setSaving]       = useState(false);
 
-  // ── Fetch Users ──────────────────────────
   const fetchUsers = async () => {
     setLoading(true);
     try {
@@ -49,7 +53,6 @@ export default function Users() {
     }
   };
 
-  // ── Fetch Departments ────────────────────
   const fetchDepartments = async () => {
     try {
       const res = await departmentsAPI.getAll();
@@ -57,20 +60,35 @@ export default function Users() {
     } catch (_) {}
   };
 
+  const fetchRoles = async () => {
+    try {
+      const res = await rolesAPI.getAll();
+      if (Array.isArray(res.data)) {
+        setRoles(res.data);
+        // default the create-form role to the first non-system role, if any
+        const defaultRole = res.data.find((r) => !r.is_system_role) || res.data[0];
+        if (defaultRole) setForm((f) => ({ ...f, role_id: defaultRole.id }));
+      }
+    } catch (_) {}
+  };
+
   useEffect(() => {
     fetchUsers();
     fetchDepartments();
+    fetchRoles();
   }, []);
 
-  // ── Create User ──────────────────────────
+  const roleName = (roleId) => roles.find((r) => r.id === roleId)?.name;
+  const badgeStyle = (roleNameStr) => {
+    const idx = roles.findIndex((r) => r.name === roleNameStr);
+    return BADGE_PALETTE[idx % BADGE_PALETTE.length] || { bg: "#f3f4f6", color: "#374151" };
+  };
+
   const handleCreate = async () => {
     if (!form.name.trim())  { setFormError("Name is required."); return; }
     if (!form.email.trim()) { setFormError("Email is required."); return; }
     if (!form.password)     { setFormError("Password is required."); return; }
-    if (["hod", "asst_hod"].includes(form.role) && !form.department_id) {
-      setFormError("Department is required for HOD and Asst HOD.");
-      return;
-    }
+    if (!form.role_id)      { setFormError("Role is required."); return; }
 
     setCreating(true);
     setFormError(null);
@@ -79,10 +97,10 @@ export default function Users() {
         name:          form.name.trim(),
         email:         form.email.trim(),
         password:      form.password,
-        role:          form.role,
+        role_id:       parseInt(form.role_id),
         department_id: form.department_id ? parseInt(form.department_id) : null,
       });
-      setForm({ name: "", email: "", password: "", role: "faculty", department_id: "" });
+      setForm((f) => ({ name: "", email: "", password: "", role_id: f.role_id, department_id: "" }));
       setShowForm(false);
       fetchUsers();
     } catch (err) {
@@ -92,13 +110,12 @@ export default function Users() {
     }
   };
 
-  // ── Open Edit ────────────────────────────
   const openEdit = (user) => {
     setEditUser(user);
     setEditForm({
       name:          user.name,
       email:         user.email,
-      role:          user.role,
+      role_id:       user.role_id || "",
       department_id: user.department_id || "",
       is_active:     user.is_active,
       password:      "",
@@ -106,7 +123,6 @@ export default function Users() {
     setEditError(null);
   };
 
-  // ── Save Edit ────────────────────────────
   const handleSave = async () => {
     setSaving(true);
     setEditError(null);
@@ -114,7 +130,7 @@ export default function Users() {
       const body = {
         name:          editForm.name,
         email:         editForm.email,
-        role:          editForm.role,
+        role_id:       editForm.role_id ? parseInt(editForm.role_id) : null,
         department_id: editForm.department_id ? parseInt(editForm.department_id) : null,
         is_active:     editForm.is_active,
       };
@@ -130,7 +146,6 @@ export default function Users() {
     }
   };
 
-  // ── Deactivate ───────────────────────────
   const handleDeactivate = async (user) => {
     if (!window.confirm(`Deactivate ${user.name}?`)) return;
     try {
@@ -141,7 +156,6 @@ export default function Users() {
     }
   };
 
-  // ── Filtered list ────────────────────────
   const getDeptName = (id) =>
     departments.find((d) => d.id === id)?.name || "—";
 
@@ -154,13 +168,12 @@ export default function Users() {
     return matchRole && matchDept && matchSearch;
   });
 
-  const counts = {
-    total:    users.length,
-    hod:      users.filter((u) => u.role === "hod").length,
-    asst_hod: users.filter((u) => u.role === "asst_hod").length,
-    faculty:  users.filter((u) => u.role === "faculty").length,
-    inactive: users.filter((u) => !u.is_active).length,
-  };
+  // Build per-role counts dynamically instead of 3 hardcoded fields
+  const roleCounts = roles.map((r) => ({
+    role: r.name,
+    count: users.filter((u) => u.role === r.name).length,
+  }));
+  const inactiveCount = users.filter((u) => !u.is_active).length;
 
   return (
   <Layout pageTitle="👥 User Management">
@@ -169,7 +182,7 @@ export default function Users() {
       <div style={s.topBar}>
         <div>
           <h2 style={s.pageTitle}>👥 User Management</h2>
-          <p style={s.pageSub}>Create and manage HOD, Asst HOD, and Faculty accounts</p>
+          <p style={s.pageSub}>Create and manage user accounts for any role</p>
         </div>
         <button style={s.primaryBtn} onClick={() => setShowForm((v) => !v)}>
           {showForm ? "✕ Cancel" : "+ Add User"}
@@ -178,11 +191,17 @@ export default function Users() {
 
       {/* Summary Cards */}
       <div style={s.summaryRow}>
-        <SummaryCard label="Total Users" value={counts.total}    color="#1e40af" bg="#dbeafe" />
-        <SummaryCard label="HODs"         value={counts.hod}      color="#1e40af" bg="#dbeafe" />
-        <SummaryCard label="Asst HODs"    value={counts.asst_hod} color="#6d28d9" bg="#ede9fe" />
-        <SummaryCard label="Faculty"      value={counts.faculty}  color="#15803d" bg="#dcfce7" />
-        <SummaryCard label="Inactive"     value={counts.inactive} color="#b91c1c" bg="#fee2e2" />
+        <SummaryCard label="Total Users" value={users.length} color="#1e40af" bg="#dbeafe" />
+        {roleCounts.map((rc, i) => (
+          <SummaryCard
+            key={rc.role}
+            label={rc.role}
+            value={rc.count}
+            color={BADGE_PALETTE[i % BADGE_PALETTE.length].color}
+            bg={BADGE_PALETTE[i % BADGE_PALETTE.length].bg}
+          />
+        ))}
+        <SummaryCard label="Inactive" value={inactiveCount} color="#b91c1c" bg="#fee2e2" />
       </div>
 
       {/* Create Form */}
@@ -227,19 +246,18 @@ export default function Users() {
               <label style={s.label}>Role *</label>
               <select
                 style={s.input}
-                value={form.role}
-                onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+                value={form.role_id}
+                onChange={(e) => setForm((f) => ({ ...f, role_id: e.target.value }))}
               >
-                {ROLES.map((r) => (
-                  <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                <option value="">— Select Role —</option>
+                {roles.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
                 ))}
               </select>
             </div>
 
             <div style={s.formGroup}>
-              <label style={s.label}>
-                Department {["hod", "asst_hod"].includes(form.role) ? "*" : "(optional)"}
-              </label>
+              <label style={s.label}>Department (optional)</label>
               <select
                 style={s.input}
                 value={form.department_id}
@@ -275,8 +293,8 @@ export default function Users() {
           />
           <select style={s.input} value={filterRole} onChange={(e) => setFilterRole(e.target.value)}>
             <option value="all">All Roles</option>
-            {ROLES.map((r) => (
-              <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+            {roles.map((r) => (
+              <option key={r.id} value={r.name}>{r.name}</option>
             ))}
           </select>
           <select style={s.input} value={filterDept} onChange={(e) => setFilterDept(e.target.value)}>
@@ -319,10 +337,10 @@ export default function Users() {
                   <td style={s.td}>
                     <span style={{
                       ...s.roleBadge,
-                      background: ROLE_COLORS[user.role]?.bg || "#f3f4f6",
-                      color:      ROLE_COLORS[user.role]?.color || "#374151",
+                      background: badgeStyle(user.role).bg,
+                      color:      badgeStyle(user.role).color,
                     }}>
-                      {ROLE_LABELS[user.role] || user.role}
+                      {user.role || "—"}
                     </span>
                   </td>
                   <td style={s.td}>{getDeptName(user.department_id)}</td>
@@ -380,9 +398,9 @@ export default function Users() {
               </div>
               <div style={s.formGroup}>
                 <label style={s.label}>Role</label>
-                <select style={s.input} value={editForm.role}
-                  onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}>
-                  {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+                <select style={s.input} value={editForm.role_id}
+                  onChange={(e) => setEditForm((f) => ({ ...f, role_id: e.target.value }))}>
+                  {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
                 </select>
               </div>
               <div style={s.formGroup}>

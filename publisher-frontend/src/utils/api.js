@@ -2,13 +2,11 @@ import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_URL || "https://e-dispy.onrender.com/";
 
-// Create axios instance
 const api = axios.create({
   baseURL: API_BASE,
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Request interceptor - add token automatically
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -20,7 +18,6 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor - handle 401
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -55,6 +52,16 @@ export const usersAPI = {
   delete:  (id)        => api.delete(`/api/auth/users/${id}`),
   getFaculty: ()         => api.get('/api/auth/faculty'), 
 };
+
+// ─── ROLES & PERMISSIONS ────────────────
+export const rolesAPI = {
+  getAll:     ()          => api.get('/api/roles'),
+  create:     (data)      => api.post('/api/roles', data),
+  update:     (id, data)  => api.put(`/api/roles/${id}`, data),
+  delete:     (id)        => api.delete(`/api/roles/${id}`),
+  getPermissions: ()      => api.get('/api/permissions'),
+};
+
 // ─── CLASSES ────────────────────────────
 export const classesAPI = {
   getAll:     ()         => api.get('/api/classes'),
@@ -73,7 +80,7 @@ export const subjectsAPI = {
 // ─── TIMETABLE ──────────────────────────────────────────
 export const timetableAPI = {
   get:              (classId)        => api.get(`/api/timetable/${classId}`),
-  save:             (classId, slots) => api.post(`/api/timetable/${classId}`, slots), // ✅ pass array directly
+  save:             (classId, slots) => api.post(`/api/timetable/${classId}`, slots),
   publish:          (classId)        => api.post(`/api/timetable/${classId}/publish`),
   getCurrentPeriod: (classId)        => api.get(`/api/timetable/${classId}/current-period`),
   getTimings:       ()               => api.get('/api/period-timings'),

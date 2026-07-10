@@ -2,11 +2,10 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../utils/api";
-
 import Layout from "../components/Layout";
 export default function NoticeBoards() {
   const nav = useNavigate();
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, hasPermission } = useAuth();
   const [boards, setBoards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -65,9 +64,11 @@ export default function NoticeBoards() {
         {/* Page title + create button */}
         <div style={s.topRow}>
           <h2 style={s.pageTitle}>📋 Notice Boards</h2>
-          <button onClick={() => setShowForm(!showForm)} style={s.createBtn}>
-            + Create New Board
-          </button>
+          {hasPermission('manage_noticeboards') && (
+            <button onClick={() => setShowForm(!showForm)} style={s.createBtn}>
+              + Create New Board
+            </button>
+          )}
         </div>
 
         {/* Create Form */}
@@ -85,7 +86,10 @@ export default function NoticeBoards() {
                 />
               </div>
 
-              {currentUser?.role === 'principal' && (
+              {/* College-wide users (no fixed department, e.g. Admin) can choose
+                  visibility; department-scoped users always create within their
+                  own department, so the choice is hidden for them. */}
+              {!currentUser?.department_id && (
                 <div style={s.formGroup}>
                   <label style={s.label}>Visible To</label>
                   <select
@@ -167,12 +171,14 @@ export default function NoticeBoards() {
                   >
                     Open Board
                   </button>
-                  <button
-                    onClick={() => handleDelete(board.id)}
-                    style={s.deleteBtn}
-                  >
-                    🗑
-                  </button>
+                  {hasPermission('delete_noticeboard') && (
+                    <button
+                      onClick={() => handleDelete(board.id)}
+                      style={s.deleteBtn}
+                    >
+                      🗑
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
