@@ -29,18 +29,70 @@ const Login = () => {
   };
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="login-container">
+      {/* Inline responsive styles */}
+      <style>{`
+        .login-container {
+          flex-direction: row;
+        }
+        .login-left {
+          width: 45%;
+          padding: 48px 56px;
+        }
+        .login-right {
+          display: flex;
+        }
+        .login-right-mobile-banner {
+          display: none;
+        }
+
+        @media (max-width: 768px) {
+          .login-container {
+            flex-direction: column;
+            min-height: 100vh;
+          }
+          .login-left {
+            width: 100%;
+            padding: 32px 24px;
+            order: 2;
+            flex: 1;
+          }
+          .login-right {
+            display: none;
+          }
+          .login-right-mobile-banner {
+            display: flex;
+            order: 1;
+          }
+          .login-heading {
+            font-size: 22px !important;
+          }
+          .login-subheading {
+            font-size: 13px !important;
+            margin-bottom: 24px !important;
+          }
+          .login-footer {
+            margin-top: 20px !important;
+          }
+        }
+
+        @media (max-width: 400px) {
+          .login-left {
+            padding: 24px 16px;
+          }
+        }
+      `}</style>
 
       {/* ── LEFT PANEL ── */}
-      <div style={styles.leftPanel}>
+      <div style={styles.leftPanel} className="login-left">
         {/* Logo */}
         <div style={styles.logoRow}>
           <div style={styles.logoBox}>E</div>
           <span style={styles.logoText}>E-Display</span>
         </div>
 
-        <h1 style={styles.heading}>Log in to your Account</h1>
-        <p style={styles.subheading}>Welcome back! Enter your credentials to continue.</p>
+        <h1 style={styles.heading} className="login-heading">Log in to your Account</h1>
+        <p style={styles.subheading} className="login-subheading">Welcome back! Enter your credentials to continue.</p>
 
         {/* Form */}
         <form onSubmit={handleSubmit} style={styles.form}>
@@ -96,13 +148,11 @@ const Login = () => {
           </button>
         </form>
 
-        <p style={styles.footer}>E-Display v1.0 · Sphoorthy Engineering College</p>
+        <p style={styles.footer} className="login-footer">E-Display v1.0 · Sphoorthy Engineering College</p>
       </div>
 
-      {/* ── RIGHT PANEL ── */}
-      <div style={styles.rightPanel}>
-        
-      
+      {/* ── RIGHT PANEL (hidden on mobile) ── */}
+      <div style={styles.rightPanel} className="login-right">
         {/* Decorative circles */}
         <div style={styles.bigCircle}>
           <div style={styles.midCircle}>
@@ -146,6 +196,14 @@ const Login = () => {
         </div>
       </div>
 
+      {/* ── MOBILE TOP BANNER (shown only on small screens) ── */}
+      <div style={styles.mobileBanner} className="login-right-mobile-banner">
+        <div style={styles.mobileBannerLogo}>E</div>
+        <div>
+          <div style={styles.mobileBannerTitle}>Smart Classroom Display</div>
+          <div style={styles.mobileBannerSubtitle}>E-Display · Sphoorthy Engineering College</div>
+        </div>
+      </div>
     </div>
   );
 };
@@ -159,12 +217,10 @@ const styles = {
 
   // ── LEFT ──
   leftPanel: {
-    width: '45%',
-    padding: '48px 56px',
-    background: '#ffffff',
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center',
+    background: '#ffffff',
   },
   logoRow: {
     display: 'flex',
@@ -183,6 +239,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   logoText: {
     fontSize: 18,
@@ -246,6 +303,7 @@ const styles = {
     fontSize: 14,
     outline: 'none',
     color: '#111827',
+    minWidth: 0,
   },
   rememberRow: {
     display: 'flex',
@@ -277,12 +335,11 @@ const styles = {
     marginTop: 32,
   },
 
-  // ── RIGHT ──
+  // ── RIGHT (desktop only) ──
   rightPanel: {
     flex: 1,
     background: 'linear-gradient(135deg, #1a237e 0%, #1565c0 60%, #0288d1 100%)',
     position: 'relative',
-    display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -371,6 +428,37 @@ const styles = {
     width: 8,
     height: 8,
     borderRadius: '50%',
+  },
+
+  // ── MOBILE BANNER (mobile only) ──
+  mobileBanner: {
+    background: 'linear-gradient(135deg, #1a237e 0%, #1565c0 60%, #0288d1 100%)',
+    alignItems: 'center',
+    gap: 12,
+    padding: '20px 24px',
+  },
+  mobileBannerLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    background: 'rgba(255,255,255,0.15)',
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 800,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  mobileBannerTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 700,
+  },
+  mobileBannerSubtitle: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 12,
+    marginTop: 2,
   },
 };
 
