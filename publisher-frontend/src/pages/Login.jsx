@@ -74,6 +74,13 @@ const Login = () => {
           .login-footer {
             margin-top: 20px !important;
           }
+          .login-input {
+            padding: 14px 0 !important;
+            font-size: 16px !important;
+          }
+          .login-button {
+            padding: 15px !important;
+          }
         }
 
         @media (max-width: 400px) {
@@ -109,6 +116,7 @@ const Login = () => {
                 placeholder="Enter your email"
                 required
                 style={styles.input}
+                className="login-input"
               />
             </div>
           </div>
@@ -124,6 +132,7 @@ const Login = () => {
                 placeholder="Enter your password"
                 required
                 style={styles.input}
+                className="login-input"
               />
             </div>
           </div>
@@ -138,6 +147,7 @@ const Login = () => {
           <button
             type="submit"
             disabled={loading}
+            className="login-button"
             style={{
               ...styles.button,
               opacity: loading ? 0.7 : 1,
