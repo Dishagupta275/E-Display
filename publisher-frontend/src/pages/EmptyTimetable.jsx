@@ -74,7 +74,69 @@ export default function EmptyTimetable() {
   if (!data) return <div>Loading...</div>;
 
   return (
-    <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+    <div style={containerStyle} className="tt-container">
+      {/* Responsive styles */}
+      <style>{`
+        .tt-container {
+          padding: 16px;
+        }
+        .tt-day-row {
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        .tt-cell {
+          min-width: 160px;
+        }
+        .tt-actions {
+          display: flex;
+          flex-direction: row;
+        }
+        .tt-btn {
+          width: auto;
+        }
+
+        @media (max-width: 600px) {
+          .tt-container {
+            padding: 10px;
+          }
+          .tt-day-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+          }
+          .tt-cell {
+            min-width: 0;
+            width: 100%;
+          }
+          .tt-cell input {
+            padding: 10px !important;
+            font-size: 16px !important;
+          }
+          .tt-actions {
+            flex-direction: column;
+            gap: 8px !important;
+          }
+          .tt-btn {
+            width: 100%;
+            margin-right: 0 !important;
+            padding: 12px 14px !important;
+          }
+          h2 {
+            font-size: 18px !important;
+          }
+          h4 {
+            font-size: 14px !important;
+          }
+        }
+
+        @media (max-width: 380px) {
+          .tt-day-row {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
+
       <h2>Empty Timetable — {classname}</h2>
 
       <div style={{ marginTop: 12 }}>
@@ -82,27 +144,16 @@ export default function EmptyTimetable() {
           <div key={day} style={{ marginBottom: 18 }}>
             <h4 style={{ marginBottom: 6 }}>{day}</h4>
 
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <div className="tt-day-row">
               {data.periods.map((p, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    minWidth: 160,
-                  }}
-                >
+                <div key={idx} className="tt-cell" style={cellStyle}>
                   <div style={{ fontSize: 12, color: "#555" }}>{p}</div>
 
                   <input
                     value={data.week[day][idx]}
                     placeholder="Subject"
                     onChange={(e) => updateCell(day, idx, e.target.value)}
-                    style={{
-                      padding: 8,
-                      borderRadius: 6,
-                      border: "1px solid #ccc",
-                    }}
+                    style={inputStyle}
                   />
                 </div>
               ))}
@@ -111,10 +162,11 @@ export default function EmptyTimetable() {
         ))}
       </div>
 
-      <div style={{ marginTop: 20 }}>
+      <div style={{ marginTop: 20 }} className="tt-actions">
         <button
           onClick={onSave}
           style={primaryBtn}
+          className="tt-btn"
           disabled={saving}
         >
           {saving ? "Saving..." : "Save"}
@@ -123,6 +175,7 @@ export default function EmptyTimetable() {
         <button
           onClick={onPublish}
           style={secondaryBtn}
+          className="tt-btn"
           disabled={publishing}
         >
           {publishing ? "Publishing..." : "Publish"}
@@ -131,6 +184,22 @@ export default function EmptyTimetable() {
     </div>
   );
 }
+
+const containerStyle = {
+  maxWidth: 1000,
+  margin: "0 auto",
+};
+
+const cellStyle = {
+  display: "flex",
+  flexDirection: "column",
+};
+
+const inputStyle = {
+  padding: 8,
+  borderRadius: 6,
+  border: "1px solid #ccc",
+};
 
 const primaryBtn = {
   padding: "8px 14px",
