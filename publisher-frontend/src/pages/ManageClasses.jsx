@@ -5,10 +5,25 @@ import { useAuth } from "../context/AuthContext";
 import { usersAPI } from "../utils/api";
 import Layout from "../components/Layout";
 
+// ✅ new — simple hook to detect mobile viewport
+function useIsMobile(breakpoint = 640) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" ? window.innerWidth <= breakpoint : false
+  );
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= breakpoint);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [breakpoint]);
+
+  return isMobile;
+}
 
 export default function ManageClasses() {
   const nav = useNavigate();
   const { currentUser, hasPermission } = useAuth();
+  const isMobile = useIsMobile(); // ✅ new
 
   const [classes, setClasses]       = useState({});
   const [loading, setLoading]       = useState(true);
@@ -133,7 +148,7 @@ export default function ManageClasses() {
         {canCreate && (
           <div style={s.card}>
             <p style={s.cardTitle}>Create New Class</p>
-            <div style={s.formGrid}>
+            <div style={isMobile ? s.formGridMobile : s.formGrid}>
 
               <div style={s.formGroup}>
                 <label style={s.label}>Class Name *</label>
@@ -216,7 +231,11 @@ export default function ManageClasses() {
 
             {formError && <p style={s.errorText}>⚠️ {formError}</p>}
 
-            <button style={s.primaryBtn} onClick={handleCreate} disabled={creating}>
+            <button
+              style={isMobile ? s.primaryBtnMobile : s.primaryBtn}
+              onClick={handleCreate}
+              disabled={creating}
+            >
               {creating ? "Creating…" : "Create Class"}
             </button>
           </div>
@@ -240,57 +259,112 @@ export default function ManageClasses() {
               <p style={{ fontSize: 40 }}>🏫</p>
               <p style={{ color: "#6b7280" }}>No classes yet. Create one above.</p>
             </div>
+          ) : isMobile ? (
+            // ✅ new — card list replaces table on small screens
+            <div style={s.cardList}>
+              {flatClasses.map((cls) => (
+                <div key={cls.id} style={s.classCard}>
+                  <div style={s.classCardHeader}>
+                    <span style={s.className}>{cls.display_name}</span>
+                    <span style={s.deptBadge}>{cls.deptName}</span>
+                  </div>
+
+                  <div style={s.classCardRow}>
+                    <span style={s.classCardLabel}>Section</span>
+                    <span>{cls.section || "—"}</span>
+                  </div>
+                  <div style={s.classCardRow}>
+                    <span style={s.classCardLabel}>Year</span>
+                    <span>Year {cls.year}</span>
+                  </div>
+                  <div style={s.classCardRow}>
+                    <span style={s.classCardLabel}>Room</span>
+                    <span>{cls.room_number || "—"}</span>
+                  </div>
+                  <div style={s.classCardRow}>
+                    <span style={s.classCardLabel}>Incharge</span>
+                    <span>{cls.incharge_name || "—"}</span>
+                  </div>
+
+                  <div style={s.classCardActions}>
+                    <button
+                      style={s.actionBtnMobile}
+                      onClick={() => nav(`/timetable/${cls.id}/week`)}
+                    >
+                      🗓 Timetable
+                    </button>
+                    <button
+                      style={s.actionBtnMobile}
+                      onClick={() => nav(`/class-setup/${cls.id}`)}
+                    >
+                      ⚙️ Setup
+                    </button>
+                    {canDelete && (
+                      <button
+                        style={s.deleteBtnMobile}
+                        onClick={() => handleDelete(cls.id)}
+                        disabled={deletingId === cls.id}
+                      >
+                        🗑 Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
-            <table style={s.table}>
-              <thead>
-                <tr style={s.thead}>
-                  <th style={s.th}>Class</th>
-                  <th style={s.th}>Section</th>
-                  <th style={s.th}>Department</th>
-                  <th style={s.th}>Year</th>
-                  <th style={s.th}>Room</th>
-                  <th style={s.th}>Incharge</th>
-                  <th style={s.th}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {flatClasses.map((cls) => (
-                  <tr key={cls.id} style={s.tr}>
-                    <td style={s.td}><span style={s.className}>{cls.display_name}</span></td>
-                    <td style={s.td}>{cls.section || "—"}</td>
-                    <td style={s.td}><span style={s.deptBadge}>{cls.deptName}</span></td>
-                    <td style={s.td}>Year {cls.year}</td>
-                    <td style={s.td}>{cls.room_number || "—"}</td>
-                    <td style={s.td}>{cls.incharge_name || "—"}</td>
-                    <td style={s.td}>
-                      <div style={s.actions}>
-                        <button
-                          style={s.actionBtn}
-                          onClick={() => nav(`/timetable/${cls.id}/week`)}
-                        >
-                          🗓 Timetable
-                        </button>
-                        <button
-                          style={s.actionBtn}
-                          onClick={() => nav(`/class-setup/${cls.id}`)}
-                        >
-                          ⚙️ Setup
-                        </button>
-                        {canDelete && (
-                          <button
-                            style={s.deleteBtn}
-                            onClick={() => handleDelete(cls.id)}
-                            disabled={deletingId === cls.id}
-                          >
-                            🗑
-                          </button>
-                        )}
-                      </div>
-                    </td>
+            <div style={s.tableScroll}>
+              <table style={s.table}>
+                <thead>
+                  <tr style={s.thead}>
+                    <th style={s.th}>Class</th>
+                    <th style={s.th}>Section</th>
+                    <th style={s.th}>Department</th>
+                    <th style={s.th}>Year</th>
+                    <th style={s.th}>Room</th>
+                    <th style={s.th}>Incharge</th>
+                    <th style={s.th}>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {flatClasses.map((cls) => (
+                    <tr key={cls.id} style={s.tr}>
+                      <td style={s.td}><span style={s.className}>{cls.display_name}</span></td>
+                      <td style={s.td}>{cls.section || "—"}</td>
+                      <td style={s.td}><span style={s.deptBadge}>{cls.deptName}</span></td>
+                      <td style={s.td}>Year {cls.year}</td>
+                      <td style={s.td}>{cls.room_number || "—"}</td>
+                      <td style={s.td}>{cls.incharge_name || "—"}</td>
+                      <td style={s.td}>
+                        <div style={s.actions}>
+                          <button
+                            style={s.actionBtn}
+                            onClick={() => nav(`/timetable/${cls.id}/week`)}
+                          >
+                            🗓 Timetable
+                          </button>
+                          <button
+                            style={s.actionBtn}
+                            onClick={() => nav(`/class-setup/${cls.id}`)}
+                          >
+                            ⚙️ Setup
+                          </button>
+                          {canDelete && (
+                            <button
+                              style={s.deleteBtn}
+                              onClick={() => handleDelete(cls.id)}
+                              disabled={deletingId === cls.id}
+                            >
+                              🗑
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 
@@ -321,6 +395,7 @@ const s = {
     display: "flex",
     alignItems: "center",
     gap: 8,
+    flexWrap: "wrap",
   },
   countBadge: {
     background: "#dbeafe",
@@ -334,6 +409,13 @@ const s = {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
     gap: 16,
+    marginBottom: 16,
+  },
+  // ✅ new — single column, tighter gap on mobile
+  formGridMobile: {
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    gap: 12,
     marginBottom: 16,
   },
   formGroup: {
@@ -350,7 +432,7 @@ const s = {
     border: "1px solid #d1d5db",
     borderRadius: 8,
     padding: "9px 12px",
-    fontSize: 14,
+    fontSize: 16, // ✅ 16px prevents iOS Safari auto-zoom on focus
     color: "#111827",
     outline: "none",
     background: "#fff",
@@ -366,6 +448,18 @@ const s = {
     fontSize: 14,
     fontWeight: 600,
     cursor: "pointer",
+  },
+  // ✅ new — full-width, larger tap target on mobile
+  primaryBtnMobile: {
+    background: "#1e3a8a",
+    color: "#fff",
+    border: "none",
+    borderRadius: 8,
+    padding: "12px 24px",
+    fontSize: 15,
+    fontWeight: 600,
+    cursor: "pointer",
+    width: "100%",
   },
   errorText: {
     fontSize: 13,
@@ -395,9 +489,16 @@ const s = {
     borderRadius: "50%",
     animation: "spin 0.8s linear infinite",
   },
+  // ✅ new — allows the table to scroll horizontally instead of squashing on tablet widths
+  tableScroll: {
+    width: "100%",
+    overflowX: "auto",
+    WebkitOverflowScrolling: "touch",
+  },
   table: {
     width: "100%",
     borderCollapse: "collapse",
+    minWidth: 640,
   },
   thead: {
     background: "#f9fafb",
@@ -411,6 +512,7 @@ const s = {
     textTransform: "uppercase",
     letterSpacing: "0.05em",
     borderBottom: "1px solid #e5e7eb",
+    whiteSpace: "nowrap",
   },
   tr: {
     borderBottom: "1px solid #f3f4f6",
@@ -456,5 +558,69 @@ const s = {
     padding: "5px 8px",
     fontSize: 13,
     cursor: "pointer",
+  },
+
+  // ✅ new styles — mobile card list for "Existing Classes"
+  cardList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  },
+  classCard: {
+    border: "1px solid #e5e7eb",
+    borderRadius: 10,
+    padding: "14px 16px",
+    background: "#fafafa",
+  },
+  classCardHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  classCardRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    fontSize: 13,
+    color: "#374151",
+    padding: "4px 0",
+    borderBottom: "1px solid #f0f0f0",
+  },
+  classCardLabel: {
+    color: "#9ca3af",
+    fontWeight: 600,
+    fontSize: 12,
+    textTransform: "uppercase",
+    letterSpacing: "0.03em",
+  },
+  classCardActions: {
+    display: "flex",
+    gap: 8,
+    marginTop: 12,
+    flexWrap: "wrap",
+  },
+  actionBtnMobile: {
+    background: "#f3f4f6",
+    color: "#374151",
+    border: "1px solid #e5e7eb",
+    borderRadius: 6,
+    padding: "8px 12px",
+    fontSize: 13,
+    cursor: "pointer",
+    flex: "1 1 auto",
+    textAlign: "center",
+  },
+  deleteBtnMobile: {
+    background: "#fee2e2",
+    color: "#dc2626",
+    border: "1px solid #fca5a5",
+    borderRadius: 6,
+    padding: "8px 12px",
+    fontSize: 13,
+    cursor: "pointer",
+    flex: "1 1 auto",
+    textAlign: "center",
   },
 };
