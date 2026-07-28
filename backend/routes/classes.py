@@ -18,10 +18,12 @@ def get_current_user(user_id):
 
 def check_department_scope(user, department_id):
     """
-    Users tied to a specific department (department_id is set) are
-    restricted to that department. Admin and college-wide roles
-    (department_id = None, e.g. TPO, Placement Dept) can access all.
+    Users with 'view_all_departments' permission (Admin, Principal, TPO, etc.)
+    can access any department. Department-scoped roles (HOD, Asst HOD, Faculty)
+    are restricted to their own department_id.
     """
+    if user.has_permission('view_all_departments'):
+        return True
     if department_id and user.department_id and user.department_id != department_id:
         return False
     return True
@@ -85,8 +87,8 @@ def get_classes():
 
         result = {}
 
-        if user.department_id is None:
-            # Admin / college-wide roles see all departments
+        if user.has_permission('view_all_departments'):
+            # Admin / Principal / college-wide roles see all departments
             departments = Department.query.all()
         else:
             # Department-scoped roles (HOD, Asst HOD, Faculty, etc.) see only their own
