@@ -4,11 +4,26 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import Layout from "../components/Layout";
 
+// ✅ new — detect mobile viewport
+function useIsMobile(breakpoint = 640) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" ? window.innerWidth <= breakpoint : false
+  );
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= breakpoint);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 export default function ClassSelect() {
   const [classes, setClasses] = useState({});
   const [loading, setLoading] = useState(true);
   const [activeDept, setActiveDept] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false); // ✅ new — mobile dept dropdown
   const nav = useNavigate();
+  const isMobile = useIsMobile(); // ✅ new
 
   useEffect(() => {
     classesAPI.getAll()
@@ -44,37 +59,86 @@ export default function ClassSelect() {
         </div>
 
       ) : (
-        <div style={s.pageWrap}>
+        <div style={isMobile ? s.pageWrapMobile : s.pageWrap}>
 
-          {/* ── LEFT: Department sidebar ── */}
-          <aside style={s.sidebar}>
-            <div style={s.sidebarLabel}>Departments</div>
-            {deptList.map(dept => (
+          {/* ── LEFT: Department sidebar (desktop) ── */}
+          {!isMobile && (
+            <aside style={s.sidebar}>
+              <div style={s.sidebarLabel}>Departments</div>
+              {deptList.map(dept => (
+                <button
+                  key={dept}
+                  style={{
+                    ...s.deptBtn,
+                    ...(activeDept === dept ? s.deptBtnActive : {}),
+                  }}
+                  onClick={() => setActiveDept(dept)}
+                >
+                  <span style={{
+                    ...s.deptDot,
+                    background: activeDept === dept ? "#1a237e" : "#cbd5e1",
+                  }} />
+                  <span style={s.deptBtnName}>{dept}</span>
+                  <span style={{
+                    ...s.deptCount,
+                    ...(activeDept === dept ? s.deptCountActive : {}),
+                  }}>
+                    {countClasses(classes[dept])}
+                  </span>
+                </button>
+              ))}
+            </aside>
+          )}
+
+          {/* ── Department dropdown menu (mobile) ── */}
+          {isMobile && (
+            <div style={s.mobileDeptWrap}>
               <button
-                key={dept}
-                style={{
-                  ...s.deptBtn,
-                  ...(activeDept === dept ? s.deptBtnActive : {}),
-                }}
-                onClick={() => setActiveDept(dept)}
+                style={s.mobileDeptToggle}
+                onClick={() => setMenuOpen(o => !o)}
               >
-                <span style={{
-                  ...s.deptDot,
-                  background: activeDept === dept ? "#1a237e" : "#cbd5e1",
-                }} />
-                <span style={s.deptBtnName}>{dept}</span>
-                <span style={{
-                  ...s.deptCount,
-                  ...(activeDept === dept ? s.deptCountActive : {}),
-                }}>
-                  {countClasses(classes[dept])}
+                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ ...s.deptDot, background: "#1a237e" }} />
+                  <span style={{ fontWeight: 700, color: "#1a237e" }}>{activeDept}</span>
+                  <span style={{ ...s.deptCount, ...s.deptCountActive }}>
+                    {activeDept ? countClasses(classes[activeDept]) : 0}
+                  </span>
                 </span>
+                <span style={{ transform: menuOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>▾</span>
               </button>
-            ))}
-          </aside>
+
+              {menuOpen && (
+                <div style={s.mobileDeptMenu}>
+                  <div style={s.sidebarLabel}>Departments</div>
+                  {deptList.map(dept => (
+                    <button
+                      key={dept}
+                      style={{
+                        ...s.deptBtn,
+                        ...(activeDept === dept ? s.deptBtnActive : {}),
+                      }}
+                      onClick={() => { setActiveDept(dept); setMenuOpen(false); }}
+                    >
+                      <span style={{
+                        ...s.deptDot,
+                        background: activeDept === dept ? "#1a237e" : "#cbd5e1",
+                      }} />
+                      <span style={s.deptBtnName}>{dept}</span>
+                      <span style={{
+                        ...s.deptCount,
+                        ...(activeDept === dept ? s.deptCountActive : {}),
+                      }}>
+                        {countClasses(classes[dept])}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── RIGHT: Classes panel ── */}
-          <main style={s.content}>
+          <main style={isMobile ? s.contentMobile : s.content}>
             {activeDept && (
               <>
                 {/* Content header */}
@@ -98,7 +162,7 @@ export default function ClassSelect() {
                         <span style={s.yearCount}>{classList.length} rooms</span>
                       </div>
 
-                      <div style={s.classGrid}>
+                      <div style={isMobile ? s.classGridMobile : s.classGrid}>
                         {classList.map(cls => (
                           <div key={cls.id} style={s.classCard}>
                             <div style={s.classTop}>
@@ -145,6 +209,13 @@ const s = {
 
   /* ── Layout ── */
   pageWrap:     { display: "flex", gap: 0, minHeight: "calc(100vh - 180px)", background: "#f0f4f8", borderRadius: 12, overflow: "hidden", border: "1px solid #e0e0e0" },
+  // ✅ new — stacked layout on mobile instead of side-by-side
+  pageWrapMobile: { display: "flex", flexDirection: "column", gap: 0, minHeight: "calc(100vh - 180px)", background: "#f0f4f8", borderRadius: 12, overflow: "visible", border: "1px solid #e0e0e0" },
+
+  // ✅ new — collapsible department dropdown for mobile
+  mobileDeptWrap:   { position: "relative", borderBottom: "1.5px solid #e8eaf6", background: "#fff" },
+  mobileDeptToggle: { width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", background: "#fff", border: "none", cursor: "pointer", fontSize: 14 },
+  mobileDeptMenu:   { position: "absolute", top: "100%", left: 0, right: 0, zIndex: 20, background: "#fff", borderBottom: "1.5px solid #e8eaf6", boxShadow: "0 8px 16px rgba(0,0,0,0.08)", padding: "10px 10px 14px", display: "flex", flexDirection: "column", gap: 3, maxHeight: "60vh", overflowY: "auto" },
 
   /* ── Sidebar ── */
   sidebar:      { width: 200, flexShrink: 0, background: "#ffffff", borderRight: "1.5px solid #e8eaf6", padding: "16px 10px", display: "flex", flexDirection: "column", gap: 3 },
@@ -159,6 +230,8 @@ const s = {
 
   /* ── Content ── */
   content:       { flex: 1, padding: "24px 28px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 24 },
+  // ✅ new — tighter padding on mobile, full width
+  contentMobile: { flex: 1, padding: "18px 14px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 20 },
   contentHeader: { display: "flex", alignItems: "flex-start", justifyContent: "space-between" },
   contentTitle:  { fontSize: 20, fontWeight: 700, color: "#1a237e" },
   contentSub:    { fontSize: 13, color: "#64748b", marginTop: 3 },
@@ -171,6 +244,8 @@ const s = {
 
   /* ── Cards ── */
   classGrid:    { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 },
+  // ✅ new — single column class cards on mobile
+  classGridMobile: { display: "grid", gridTemplateColumns: "1fr", gap: 12 },
   classCard:    { background: "#fff", borderRadius: 10, padding: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.06)", border: "1px solid #e0e0e0" },
   classTop:     { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   className:    { fontSize: 16, fontWeight: 700, color: "#1a237e" },
