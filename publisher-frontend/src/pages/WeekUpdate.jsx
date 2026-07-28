@@ -240,6 +240,15 @@ export default function WeekUpdate() {
           </table>
         </div>
 
+        <div style={{ ...s.actions, marginTop: 20, marginBottom: 0 }}>
+          <button onClick={handleSave} disabled={saving} style={s.saveBtn}>
+            {saving ? "Saving…" : "💾 Save Timetable"}
+          </button>
+          <button onClick={handlePublish} disabled={publishing} style={s.publishBtn}>
+            {publishing ? "Publishing…" : "📡 Save & Publish to Display"}
+          </button>
+        </div>
+
       </div>
     </Layout>
   );
