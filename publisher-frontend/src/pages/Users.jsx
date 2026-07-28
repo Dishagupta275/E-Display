@@ -3,6 +3,19 @@ import { useAuth } from "../context/AuthContext";
 import { usersAPI, departmentsAPI, rolesAPI } from "../utils/api";
 import Layout from "../components/Layout";
 
+// If you already have this in ../hooks/useIsMobile, delete this and import it instead.
+function useIsMobile(breakpoint = 640) {
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" ? window.innerWidth <= breakpoint : false
+  );
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= breakpoint);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 // Fallback color palette for role badges — cycles through these for any
 // role name, so newly created roles (TPO, Placement Dept, etc.) still get
 // a distinct color without needing code changes.
@@ -17,6 +30,7 @@ const BADGE_PALETTE = [
 
 export default function Users() {
   const { currentUser } = useAuth();
+  const isMobile = useIsMobile();
 
   const [users, setUsers]             = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -179,12 +193,15 @@ export default function Users() {
   <Layout pageTitle="👥 User Management">
     <div style={s.page}>
 
-      <div style={s.topBar}>
+      <div style={{ ...s.topBar, flexDirection: isMobile ? "column" : "row", gap: isMobile ? 12 : 0 }}>
         <div>
           <h2 style={s.pageTitle}>👥 User Management</h2>
           <p style={s.pageSub}>Create and manage user accounts for any role</p>
         </div>
-        <button style={s.primaryBtn} onClick={() => setShowForm((v) => !v)}>
+        <button
+          style={{ ...s.primaryBtn, width: isMobile ? "100%" : "auto" }}
+          onClick={() => setShowForm((v) => !v)}
+        >
           {showForm ? "✕ Cancel" : "+ Add User"}
         </button>
       </div>
@@ -282,11 +299,11 @@ export default function Users() {
 
       {error && <div style={s.errorBanner}>⚠️ {error}</div>}
 
-      {/* Filters + Table */}
+      {/* Filters + Table/Cards */}
       <div style={s.card}>
-        <div style={s.filterRow}>
+        <div style={{ ...s.filterRow, flexDirection: isMobile ? "column" : "row" }}>
           <input
-            style={{ ...s.input, flex: 1, minWidth: 180 }}
+            style={{ ...s.input, flex: 1, minWidth: isMobile ? "auto" : 180 }}
             placeholder="Search by name or email…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -317,63 +334,105 @@ export default function Users() {
               {users.length === 0 ? "No users yet. Add one above." : "No users match your filters."}
             </p>
           </div>
+        ) : isMobile ? (
+          <div style={s.cardList}>
+            {filtered.map((user) => (
+              <div key={user.id} style={s.userCard}>
+                <div style={s.userCardTop}>
+                  <div>
+                    <div style={s.userName}>{user.name}</div>
+                    <div style={s.userEmail}>{user.email}</div>
+                  </div>
+                  <span style={{
+                    ...s.statusBadge,
+                    background: user.is_active ? "#dcfce7" : "#fee2e2",
+                    color:      user.is_active ? "#15803d" : "#b91c1c",
+                  }}>
+                    {user.is_active ? "Active" : "Inactive"}
+                  </span>
+                </div>
+
+                <div style={s.userCardMeta}>
+                  <span style={{
+                    ...s.roleBadge,
+                    background: badgeStyle(user.role).bg,
+                    color:      badgeStyle(user.role).color,
+                  }}>
+                    {user.role || "—"}
+                  </span>
+                  <span style={s.userCardDept}>{getDeptName(user.department_id)}</span>
+                </div>
+
+                <div style={{ ...s.actions, marginTop: 12 }}>
+                  <button style={{ ...s.actionBtn, flex: 1 }} onClick={() => openEdit(user)}>✏️ Edit</button>
+                  {user.is_active && (
+                    <button style={{ ...s.deleteBtn, flex: 1 }} onClick={() => handleDeactivate(user)}>
+                      🚫 Deactivate
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
-          <table style={s.table}>
-            <thead>
-              <tr style={s.thead}>
-                <th style={s.th}>Name</th>
-                <th style={s.th}>Email</th>
-                <th style={s.th}>Role</th>
-                <th style={s.th}>Department</th>
-                <th style={s.th}>Status</th>
-                <th style={s.th}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((user) => (
-                <tr key={user.id} style={s.tr}>
-                  <td style={s.td}><span style={s.userName}>{user.name}</span></td>
-                  <td style={s.td}><span style={s.userEmail}>{user.email}</span></td>
-                  <td style={s.td}>
-                    <span style={{
-                      ...s.roleBadge,
-                      background: badgeStyle(user.role).bg,
-                      color:      badgeStyle(user.role).color,
-                    }}>
-                      {user.role || "—"}
-                    </span>
-                  </td>
-                  <td style={s.td}>{getDeptName(user.department_id)}</td>
-                  <td style={s.td}>
-                    <span style={{
-                      ...s.statusBadge,
-                      background: user.is_active ? "#dcfce7" : "#fee2e2",
-                      color:      user.is_active ? "#15803d" : "#b91c1c",
-                    }}>
-                      {user.is_active ? "Active" : "Inactive"}
-                    </span>
-                  </td>
-                  <td style={s.td}>
-                    <div style={s.actions}>
-                      <button style={s.actionBtn} onClick={() => openEdit(user)}>✏️ Edit</button>
-                      {user.is_active && (
-                        <button style={s.deleteBtn} onClick={() => handleDeactivate(user)}>
-                          🚫 Deactivate
-                        </button>
-                      )}
-                    </div>
-                  </td>
+          <div style={s.tableWrapper}>
+            <table style={s.table}>
+              <thead>
+                <tr style={s.thead}>
+                  <th style={s.th}>Name</th>
+                  <th style={s.th}>Email</th>
+                  <th style={s.th}>Role</th>
+                  <th style={s.th}>Department</th>
+                  <th style={s.th}>Status</th>
+                  <th style={s.th}>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map((user) => (
+                  <tr key={user.id} style={s.tr}>
+                    <td style={s.td}><span style={s.userName}>{user.name}</span></td>
+                    <td style={s.td}><span style={s.userEmail}>{user.email}</span></td>
+                    <td style={s.td}>
+                      <span style={{
+                        ...s.roleBadge,
+                        background: badgeStyle(user.role).bg,
+                        color:      badgeStyle(user.role).color,
+                      }}>
+                        {user.role || "—"}
+                      </span>
+                    </td>
+                    <td style={s.td}>{getDeptName(user.department_id)}</td>
+                    <td style={s.td}>
+                      <span style={{
+                        ...s.statusBadge,
+                        background: user.is_active ? "#dcfce7" : "#fee2e2",
+                        color:      user.is_active ? "#15803d" : "#b91c1c",
+                      }}>
+                        {user.is_active ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                    <td style={s.td}>
+                      <div style={s.actions}>
+                        <button style={s.actionBtn} onClick={() => openEdit(user)}>✏️ Edit</button>
+                        {user.is_active && (
+                          <button style={s.deleteBtn} onClick={() => handleDeactivate(user)}>
+                            🚫 Deactivate
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
       {/* Edit Modal */}
       {editUser && (
         <div style={s.modalBackdrop}>
-          <div style={s.modal}>
+          <div style={{ ...s.modal, maxWidth: isMobile ? "95%" : 640, padding: isMobile ? "20px 20px" : "28px 32px" }}>
             <div style={s.modalHeader}>
               <h3 style={s.modalTitle}>Edit — {editUser.name}</h3>
               <button style={s.closeBtn} onClick={() => setEditUser(null)}>✕</button>
@@ -487,4 +546,9 @@ const s = {
   modalTitle: { fontSize: 17, fontWeight: 700, color: "#111827", margin: 0 },
   closeBtn:   { background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "#6b7280" },
   modalFooter:{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 8 },
+  cardList:   { display: "flex", flexDirection: "column", gap: 12 },
+  userCard:   { border: "1px solid #e5e7eb", borderRadius: 10, padding: "14px 16px", background: "#fff" },
+  userCardTop:  { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 },
+  userCardMeta: { display: "flex", alignItems: "center", gap: 8, marginTop: 8, flexWrap: "wrap" },
+  userCardDept: { fontSize: 13, color: "#6b7280" },
 };
