@@ -63,7 +63,19 @@ export default function LockControl({ locked, onLockedChange }) {
           borderColor: locked ? "rgba(220,38,38,1)" : "rgba(255,255,255,0.35)",
         }}
       >
-        <span style={{ fontSize: 16 }}>{locked ? "🔒" : "🔓"}</span>
+        {locked ? (
+          // Closed padlock
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="4" y="11" width="16" height="10" rx="2" />
+            <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+          </svg>
+        ) : (
+          // Open padlock
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="4" y="11" width="16" height="10" rx="2" />
+            <path d="M8 11V7a4 4 0 0 1 7.65-1.65" />
+          </svg>
+        )}
       </button>
 
       {showPinModal && (
@@ -73,7 +85,12 @@ export default function LockControl({ locked, onLockedChange }) {
             onClick={(e) => e.stopPropagation()}
             onSubmit={handlePinSubmit}
           >
-            <div style={styles.modalIcon}>🔒</div>
+            <div style={styles.modalIcon}>
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#0d2b6b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="4" y="11" width="16" height="10" rx="2" />
+                <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+              </svg>
+            </div>
             <div style={styles.modalTitle}>Display Locked</div>
             <div style={styles.modalSubtitle}>Enter PIN to unlock and use the board normally</div>
 
@@ -146,7 +163,7 @@ const styles = {
     flexDirection: "column",
     alignItems: "center",
   },
-  modalIcon: { fontSize: 34, marginBottom: 8 },
+  modalIcon: { display: "flex", justifyContent: "center", marginBottom: 10 },
   modalTitle: { fontSize: 19, fontWeight: 800, color: "#111827", marginBottom: 4 },
   modalSubtitle: { fontSize: 13, color: "#6b7280", marginBottom: 20 },
   pinInput: {
