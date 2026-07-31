@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import mqtt from "mqtt";
 import TimetableView from "./TimetableView";
+import LockControl from "./components/LockControl";
 import "./Display.css";
 
 const API_BASE = import.meta.env.VITE_API_URL || "https://e-dispy.onrender.com/";
@@ -48,6 +49,7 @@ export default function Display({ classObj, token, deviceId, onExitKiosk }) {
   const [notifTimeLeft, setNotifTimeLeft] = useState(null);
   const [ticker, setTicker]               = useState(null);
   const [events, setEvents]               = useState([]);
+  const [locked, setLocked]               = useState(false);
 
   const notifTimerRef   = useRef(null);
   const notifCounterRef = useRef(null);
@@ -61,12 +63,12 @@ export default function Display({ classObj, token, deviceId, onExitKiosk }) {
     return () => clearInterval(t);
   }, []);
 
-  // ── F9 exit kiosk ────────────────────────────────────
+  // ── F9 exit kiosk (disabled while locked) ─────────────
   useEffect(() => {
-    const handler = (e) => { if (e.key === "F9") onExitKiosk(); };
+    const handler = (e) => { if (e.key === "F9" && !locked) onExitKiosk(); };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onExitKiosk]);
+  }, [onExitKiosk, locked]);
 
   // ── Heartbeat every 60s ──────────────────────────────
   useEffect(() => {
@@ -361,6 +363,7 @@ export default function Display({ classObj, token, deviceId, onExitKiosk }) {
         <div className="kiosk-header-right">
           <div className="kiosk-class-badge">{classObj.display_name}</div>
           <div className="kiosk-room-badge">ROOM {classObj.room_number || "N/A"}</div>
+          <LockControl locked={locked} onLockedChange={setLocked} />
         </div>
       </div>
 
@@ -461,36 +464,42 @@ export default function Display({ classObj, token, deviceId, onExitKiosk }) {
       <div className="kiosk-footer">
         <span>ACADEMIC YEAR 2025–2026</span>
         <span>SPHOORTHY ENGINEERING COLLEGE</span>
-        <span className="kiosk-exit-hint">Press F9 to exit</span>
+        <span className="kiosk-exit-hint">
+          {locked ? "🔒 Display locked" : "Press F9 to exit"}
+        </span>
       </div>
 
-      {/* ── POPUP NOTIFICATION OVERLAY ──────────────────── */}
+      {/* ── TOP NOTIFICATION BANNER ──────────────────────── */}
       {notification && (
-        <div className="notif-backdrop" onClick={dismissNotification}>
-          <div className="notif-box" onClick={(e) => e.stopPropagation()}>
-            <div className="notif-top-bar">
-              <div className="notif-badge">📢 ANNOUNCEMENT</div>
-              {notifTimeLeft && (
-                <div className="notif-timer">
-                  Auto-closes in {formatCountdown(notifTimeLeft)}
-                </div>
-              )}
-            </div>
-            <div className="notif-title">{notification.title || "Notice"}</div>
+        <div className="notif-banner">
+          <div className="notif-banner-badge">📢 ANNOUNCEMENT</div>
+
+          <div className="notif-banner-body">
+            <div className="notif-banner-title">{notification.title || "Notice"}</div>
             {notification.message && (
-              <div className="notif-message">{notification.message}</div>
+              <div className="notif-banner-message">{notification.message}</div>
             )}
-            {notification.image_url && (
-              <img
-                src={`${API_BASE}${notification.image_url}`}
-                alt="notification"
-                className="notif-image"
-              />
-            )}
-            <button className="notif-dismiss-btn" onClick={dismissNotification}>
-              ✕ Dismiss
-            </button>
           </div>
+
+          {notification.image_url && (
+            <img
+              src={`${API_BASE}${notification.image_url}`}
+              alt="notification"
+              className="notif-banner-image"
+            />
+          )}
+
+          {notifTimeLeft && (
+            <div className="notif-banner-timer">{formatCountdown(notifTimeLeft)}</div>
+          )}
+
+          <button
+            className="notif-banner-dismiss"
+            onClick={dismissNotification}
+            aria-label="Dismiss notification"
+          >
+            ✕
+          </button>
         </div>
       )}
 
