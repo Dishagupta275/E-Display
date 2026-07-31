@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import mqtt from "mqtt";
+import LockControl from "./components/LockControl";
 
 const API_BASE = import.meta.env.VITE_API_URL || "https://e-dispy.onrender.com";
 
@@ -43,6 +44,7 @@ export default function NoticeBoard({ board, notices: initialNotices, token, onB
   const [currentIdx, setCurrentIdx] = useState(0);
   const [fullScreen, setFullScreen] = useState(null);
   const [now, setNow] = useState(new Date());
+  const [locked, setLocked] = useState(false);
   const timerRef = useRef(null);
   const lastNoticesJSON = useRef(JSON.stringify(initialNotices || []));
 
@@ -50,6 +52,13 @@ export default function NoticeBoard({ board, notices: initialNotices, token, onB
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  // F9 exit — disabled while locked
+  useEffect(() => {
+    const handler = (e) => { if (e.key === "F9" && !locked && onBack) onBack(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onBack, locked]);
 
   useEffect(() => {
     if (board?.display_mode !== "carousel" || notices.length <= 1) return;
@@ -140,9 +149,11 @@ export default function NoticeBoard({ board, notices: initialNotices, token, onB
                 <div style={gs.newBadge}>NEW</div>
               )}
               {notice.image_url ? (
-                <img src={buildImageUrl(notice.image_url)} alt={notice.title} style={gs.noticeImg} />
+                <div style={gs.noticeImgFrame}>
+                  <img src={buildImageUrl(notice.image_url)} alt={notice.title} style={gs.noticeImg} />
+                </div>
               ) : (
-                <div style={{ ...gs.noticeImg, background: cat.bg }} />
+                <div style={{ ...gs.noticeImgFrame, background: cat.bg }} />
               )}
               <div style={gs.noticeBody}>
                 <div style={gs.noticeMetaRow}>
@@ -213,6 +224,9 @@ export default function NoticeBoard({ board, notices: initialNotices, token, onB
         <div style={gs.headerRight}>
           <div style={gs.clock}>{now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}</div>
           <div style={gs.clockDate}>{now.toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short" })}</div>
+          <div style={{ marginTop: 4 }}>
+            <LockControl locked={locked} onLockedChange={setLocked} />
+          </div>
         </div>
       </div>
 
@@ -247,8 +261,8 @@ export default function NoticeBoard({ board, notices: initialNotices, token, onB
 
       <div style={gs.footer}>
         <span>Notice board</span>
-        <span>Academic year 2025–2026</span>
-        <span style={{ color: "#e8791a" }}>Press F9 to exit</span>
+        <span>Academic year 2026–2027</span>
+        <span style={{ color: "#e8791a" }}>{locked ? "🔒 Display locked" : "Press F9 to exit"}</span>
       </div>
     </div>
   );
@@ -264,19 +278,20 @@ const gs = {
   collegeName: { fontSize: 16, fontWeight: 500 },
   boardName: { fontSize: 11, opacity: 0.7, marginTop: 1 },
   headerRight: { marginLeft: "auto", textAlign: "right" },
-  clock: { fontSize: 13, fontWeight: 500 },
-  clockDate: { fontSize: 11, opacity: 0.7 },
+  clock: { fontSize: 22, fontWeight: 600 },
+  clockDate: { fontSize: 15, opacity: 0.8 },
 
   statusBar: { background: "#e8791a", color: "#fff", padding: "5px 20px", fontSize: 11, fontWeight: 500, display: "flex", justifyContent: "space-between" },
 
   gridWrap: { display: "grid", gap: 12, padding: "14px 16px", flex: 1, overflow: "auto" },
   noticeCard: { background: "#fff", border: "1px solid #e0e0e0", borderRadius: 8, overflow: "hidden", cursor: "pointer", display: "flex", flexDirection: "column", position: "relative" },
   newBadge: { position: "absolute", top: 6, left: 6, background: "#e8452a", color: "#fff", fontSize: 9, fontWeight: 500, padding: "2px 6px", borderRadius: 3, zIndex: 1 },
-  noticeImg: { width: "100%", flex: 1, minHeight: 120, objectFit: "cover" },
+  noticeImgFrame: { width: "100%", aspectRatio: "4 / 3", background: "#f4f5f7", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  noticeImg: { width: "100%", height: "100%", objectFit: "contain" },
   noticeBody: { padding: "6px 10px 8px" },
   noticeMetaRow: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 },
   tag: { fontSize: 9, fontWeight: 500, padding: "1px 6px", borderRadius: 3 },
-  postedAt: { fontSize: 9, color: "#999" },
+  postedAt: { fontSize: 13, color: "#888" },
   noticeTitle: { fontSize: 11, fontWeight: 500, color: "#222", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" },
 
   empty: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#999", fontSize: 16 },
@@ -285,7 +300,7 @@ const gs = {
   carouselImg: { width: "100%", maxWidth: "100%", flex: 1, minHeight: 0, objectFit: "contain", borderRadius: 10, marginBottom: 14 },
   carouselText: { textAlign: "center", maxWidth: "90%", flexShrink: 0 },
   carouselTitle: { fontSize: 20, fontWeight: 500, color: "#222", margin: "0 0 4px" },
-  carouselPostedAt: { fontSize: 12, color: "#999" },
+  carouselPostedAt: { fontSize: 16, color: "#888" },
   dots: { display: "flex", gap: 8, marginTop: 16, justifyContent: "center" },
   dot: { width: 8, height: 8, borderRadius: "50%", cursor: "pointer", transition: "all 0.2s" },
   timerHint: { position: "absolute", bottom: 14, right: 20, fontSize: 11, color: "#aaa" },
@@ -296,7 +311,7 @@ const gs = {
   overlayImg: { maxWidth: "90vw", maxHeight: "65vh", objectFit: "contain", borderRadius: 10, marginBottom: 24 },
   overlayTextBlock: { textAlign: "center", maxWidth: "80vw" },
   overlayTitle: { fontSize: 24, fontWeight: 500, color: "#222", margin: "0 0 6px" },
-  overlayPostedAt: { fontSize: 13, color: "#999", marginBottom: 14 },
+  overlayPostedAt: { fontSize: 17, color: "#888", marginBottom: 14 },
   overlayContent: { fontSize: 16, color: "#444", lineHeight: 1.7, margin: 0 },
 
   footer: { background: "#0d0d0d", color: "#fff", display: "flex", justifyContent: "space-between", padding: "8px 20px", fontSize: 11, fontWeight: 500 },
